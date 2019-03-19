@@ -7,14 +7,16 @@
 import json
 import logging
 
+logger = logging.getLogger('Shenzhen')
+
 class ShenzhenPipeline(object):
 	def __init__(self):
-		self.filename = open("shenzhen.json", "a")
+		self.filename = open("code.json", "a")
 
 	def process_item(self, item, spider):
 		text = json.dumps(dict(item), ensure_ascii = False) + ",\n"
-		logging.info(text);
-		self.filename.write(text.encode("utf-8"))
+		logger.info(text);
+		self.filename.write(text);
 		return item
 
 	def close_spider(self, spider):
