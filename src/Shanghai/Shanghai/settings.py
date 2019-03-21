@@ -46,9 +46,9 @@ ROBOTSTXT_OBEY = True
 
 # Enable or disable spider middlewares
 # See https://doc.scrapy.org/en/latest/topics/spider-middleware.html
-#SPIDER_MIDDLEWARES = {
-#    'Shanghai.middlewares.ShanghaiSpiderMiddleware': 543,
-#}
+SPIDER_MIDDLEWARES = {
+   'Shanghai.middlewares.ShanghaiSpiderMiddleware': 543,
+}
 
 # Enable or disable downloader middlewares
 # See https://doc.scrapy.org/en/latest/topics/downloader-middleware.html

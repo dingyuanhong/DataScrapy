@@ -6,7 +6,6 @@
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
-import random
 
 class ShanghaiSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -60,8 +59,6 @@ class ShanghaiDownloaderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the downloader middleware does not modify the
     # passed objects.
-    def __init__(self, user_agent):
-        self.user_agent = user_agent
 
     @classmethod
     def from_crawler(cls, crawler):
