@@ -3,73 +3,69 @@ import scrapy
 import random
 from string import Template
 from Shenzhen.items import CodeItem,QuotationItem
-import logging
 import json
 from bs4 import BeautifulSoup
-
-def log(name):
-    logger = logging.getLogger(name)
-    # file = logging.FileHandler("./log/Shenzhen.log");
-    # file.setLevel(logging.INFO);
-    # logger.addHandler(file);
-    console = logging.StreamHandler()
-    console.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(relativeCreated)d [%(name)s] %(levelname)s:%(message)s')
-    console.setFormatter(formatter)
-    
-    logger.addHandler(console);
-    return logger;
+import datetime
+import redis
+import os
+import sys
+sys.path.append("..")
+from util.logger import getLogger
 
 
 class SharesSpider(scrapy.Spider):
     name = 'shares'
     allowed_domains = ['szse.cn']
     
-    logger = log('Shenzhen');
+    logger = getLogger('Shenzhen');
 
     #股票代码
-    url = "http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1110x&TABKEY=${key}&PAGENO=${pageno}&random=${random}"
-    code = Template(url)
+    url = Template("http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1110x&TABKEY=${key}&PAGENO=${pageno}&random=${random}")
     keys = ['tab1','tab2','tab3','tab4'];
 
+    #历史日线
+    historyDay = Template('http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1815_stock&TABKEY=${key}&radioClass=00%2C20%2C30&txtSite=all&txtDMorJC=${code}&txtBeginDate=${date}&txtEndDate=${date}&random=${random}')
+
     #公司信息
-    company = 'http://www.szse.cn/api/report/index/companyGeneralization'
+    company = Template('http://www.szse.cn/api/report/index/companyGeneralization?secCode=${code}&random=${random}')
     #关键指标
-    IndexGeneralization = 'http://www.szse.cn/api/report/index/stockKeyIndexGeneralization'
+    IndexGeneralization = Template('http://www.szse.cn/api/report/index/stockKeyIndexGeneralization?secCode=${code}&random=${random}')
     #最新公告
-    annIndex = 'http://www.szse.cn/api/disc/announcement/annIndex'
+    annIndex = Template('http://www.szse.cn/api/disc/announcement/annIndex?secCode=${code}&random=${random}&channelCode=${channel}')
     #市场行情数据
-    market = 'http://www.szse.cn/api/market/ssjjhq/getTimeData'
+    market = Template('http://www.szse.cn/api/market/ssjjhq/getTimeData?code=${code}&random=${random}&marketId=1')
     #历史数据
-    history = 'http://www.szse.cn/api/market/ssjjhq/getHistoryData'
+    history = Template('http://www.szse.cn/api/market/ssjjhq/getHistoryData?code=${code}&random=${random}&marketId=1&cycleType=${type}')
     #公告
     annList = 'http://www.szse.cn/api/disc/announcement/annList'
-    #历史日线
-    historyDay = 'http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1815_stock&TABKEY=${key}&radioClass=00%2C20%2C30&txtSite=all&txtDMorJC=${code}&txtBeginDate=${date}&txtEndDate=${date}&random=${random}'
-    day = Template(historyDay)
+    
+    pool = redis.ConnectionPool(host='127.0.0.1', port=6379)
+    cache = redis.Redis(connection_pool=pool)
 
     def start_requests(self):
         pageno = 1;
         for key in self.keys:
-            url = self.code.substitute(key=key,pageno=pageno,random=random.random())
-            yield scrapy.Request(url,meta={'key':key,'pageno':pageno},callback= self.parse)
-            return;
+            meta = {'key':key,'pageno':pageno,'random':random.random()}
+            url = self.url.substitute(meta)
+            yield scrapy.Request(url,meta=meta,callback= self.parse)
+            # return;
 
     def parse(self, response):
+        self.logger.info(response.url);
         key = response.meta['key']
         js = json.loads(response.body) 
         for data in js:
             if data['metadata']['tabkey'] == key:
                 for each in data['data']:
-                    item = CodeItem()
-                    # 职位名称
-                    item['code'] = each['zqdm']
                     soup = BeautifulSoup(each['gsjc'],"lxml");
-                    
+
+                    item = {}
+                    #编号
+                    item['code'] = each['zqdm']
                     #详情
                     item['details'] = soup.a.get('href')
                     #简称
-                    item['abbreviation'] = soup.a.get_text();
+                    item['name'] = soup.a.get_text();
                     #全称
                     item['fullName'] = each['gsqc']
                     #行业
@@ -79,98 +75,108 @@ class SharesSpider(scrapy.Spider):
                     #扩展
                     item["meta"] = data['metadata']['name']
 
-                    #行情
+                    item["type"] = "generalization";
+
+                    yield item
+
+                    code = item['code'];
+
+                    # 历史数据 指定日期日线
+                    date = self.getDay(code,"historyDay");
+                    meta = {
+                        'key':key,
+                        'code':code,
+                        'date':date,
+                        'random':random.random()
+                    };
+                    # yield scrapy.Request(self.historyDay.substitute(meta),
+                    #     meta=meta,
+                    #     callback = self.parseHistoryDay)
+
+                    if key != 'tab1':
+                        continue;
+
+                    continue;
+
+                    #股票行情
                     soup = BeautifulSoup(each['jqhq'],'lxml')
                     url = soup.a.get('a-param');
                     url = 'http://www.szse.cn/api/report' + url;
+                    yield scrapy.Request(url,
+                        callback = self.parseQuotation)
 
-                    # yield item
+                    # #公司信息
+                    meta = {'key':key,'code':code,'random':random.random()};
+                    yield scrapy.Request(self.company.substitute(meta),
+                        meta=meta,
+                        callback = self.parseCompany)
 
-                    #股票行情
-                    # yield scrapy.Request(url,
-                    #     meta={'key':key},
-                    #     callback = self.parseQuotation)
+                    # #关键指标
+                    yield scrapy.Request(self.IndexGeneralization.substitute(meta),
+                        meta=meta,
+                        callback = self.parseIndex)
 
-                    #公司信息
-                    # yield scrapy.Request(self.company + '?secCode='+item['code']
-                    #     +'&random='+str(random.random()),
-                    #     meta={'key':key,'code':item['code']},
-                    #     callback = self.parseCompany)
+                    meta = {'key':key,'code':code,'random':random.random(),"channel":"listedNotice_disc"};
+                    # #最新公告
+                    yield scrapy.Request(self.annIndex.substitute(meta),
+                        meta=meta,
+                        callback = self.parseAnnIndex)
 
-                    #关键指标
-                    # yield scrapy.Request(self.IndexGeneralization + '?secCode='+item['code']
-                    #     +'&random='+str(random.random()),
-                    #     meta={'key':key,'code':item['code']},
-                    #     callback = self.parseIndex)
+                    meta = {'key':key,'code':code,'random':random.random(),"channel":"fixed_disc"};
+                    # #定期报告
+                    yield scrapy.Request(self.annIndex.substitute(meta),
+                        meta=meta,
+                        callback = self.parseAnnIndex)
 
-                    #最新公告
-                    # yield scrapy.Request(self.annIndex + '?secCode='+item['code']
-                    #     +'&random='+str(random.random())+'&channelCode=listedNotice_disc',
-                    #     meta={'key':key,'code':item['code']},
-                    #     callback = self.parseAnnIndex)
+                    meta = {'key':key,'code':code,'random':random.random()};
+                    # #市场行情数据
+                    yield scrapy.Request(self.market.substitute(meta),
+                        meta=meta,
+                        callback = self.parseMarket)
 
-                    #定期报告
-                    # yield scrapy.Request(self.annIndex + '?secCode='+item['code']
-                    #     +'&random='+str(random.random())+'&channelCode=fixed_disc',
-                    #     meta={'key':key,'code':item['code']},
-                    #     callback = self.parseAnnIndex)
-
-                    #市场行情数据
-                    # yield scrapy.Request(self.market + '?code='+item['code']
-                    #     +'&random='+str(random.random())+'&marketId=1',
-                    #     meta={'key':key,'code':item['code']},
-                    #     callback = self.parseMarket)
-
+                    meta = {'key':key,'code':code,'random':random.random(),'type':32};
                     #历史数据 日线
-                    # yield scrapy.Request(self.history + '?code='+item['code']
-                    #     +'&random='+str(random.random())+'&marketId=1&cycleType=32',
-                    #     meta={'key':key,'code':item['code'],'type':32},
-                    #     callback = self.parseHistory)
+                    yield scrapy.Request(self.history.substitute(meta),
+                        meta=meta,
+                        callback = self.parseHistory)
 
+                    meta = {'key':key,'code':code,'random':random.random(),'type':33};
                     # #历史数据 周线
-                    # yield scrapy.Request(self.history + '?code='+item['code']
-                    #     +'&random='+str(random.random())+'&marketId=1&cycleType=33',
-                    #     meta={'key':key,'code':item['code'],'type':33},
-                    #     callback = self.parseHistory)
+                    yield scrapy.Request(self.history.substitute(meta),
+                        meta=meta,
+                        callback = self.parseHistory)
 
+                    meta = {'key':key,'code':code,'random':random.random(),'type':34};
                     # #历史数据 月线
-                    # yield scrapy.Request(self.history + '?code='+item['code']
-                    #     +'&random='+str(random.random())+'&marketId=1&cycleType=34',
-                    #     meta={'key':key,'code':item['code'],'type':34},
-                    #     callback = self.parseHistory)
-
-                    #历史数据 指定日期日线
-                    yield scrapy.Request(self.day.substitute(
-                        key=key,
-                        code=item['code'],
-                        date='2018-05-10',
-                        random=random.random()),
-                        meta={'key':key,'code':item['code']},
-                        callback = self.parseHistoryDay)
+                    yield scrapy.Request(self.history.substitute(meta),
+                        meta=meta,
+                        callback = self.parseHistory)
 
                     #公告
-                    # formdata = {
-                    #     'channelCode': ["fixed_disc"],
-                    #     'pageNum': '1',
-                    #     'pageSize': '30',
-                    #     'seDate': ["", ""],
-                    #     'stock': [item['code']]
-                    # }
-                    # yield scrapy.FormRequest(
-                    #     url = self.annList +'?random='+str(random.random()),
-                    #     formdata = formdata,
-                    #     meta = formdata,
-                    #     callback = self.parseAnnList
-                    # );
-
-                    return;
+                    # "fixed_disc"
+                    formdata = {
+                        'channelCode': ["listedNotice_disc"],
+                        'pageNum': '1',
+                        'pageSize': '30',
+                        'seDate': ["", ""],
+                        'stock': [code]
+                    }
+                    yield scrapy.FormRequest(
+                        url = self.annList +'?random='+str(random.random()),
+                        method="POST",
+                        headers={'Content-Type': 'application/json'},
+                        body=json.dumps(formdata),
+                        meta = formdata,
+                        callback = self.parseAnnList
+                    );
                 
                 if data['metadata']['pageno'] * data['metadata']['pagesize'] < data['metadata']['recordcount']:
                     # 每次处理完一页的数据之后，重新发送下一页页面请求
                     # self.offset自增10，同时拼接为新的url，并调用回调函数self.parse处理Response
                     pageno = response.meta['pageno'] + 1;
-                    yield scrapy.Request(self.s.substitute(key=key,pageno=pageno,random=random.random()),
-                        meta={'key':key,'pageno':pageno},
+                    meta = {'key':key,'pageno':pageno,'random':random.random()}
+                    yield scrapy.Request(self.url.substitute(meta),
+                        meta=meta,
                         callback = self.parse)
 
     #股票指数
@@ -178,15 +184,16 @@ class SharesSpider(scrapy.Spider):
         js = json.loads(response.body) 
         for data in js:
             for each in data['data']:
-                item = QuotationItem();
+                item = {};
                 item['date'] = each['jyrq'];
                 item['code'] = each['zqdm'];
-                item['abbreviation'] = each['zqjc'];
-                item['frontReceipt'] = each['qss'];
-                item['receiveNow'] = each['ss'];
-                item['updown'] = each['sdf'];
-                item['transactionAmount'] = each['cjje'];
-                item['ratio'] = each['syl1'];
+                item['name'] = each['zqjc'];
+                item['settlement'] = each['qss'];
+                item['trade'] = each['ss'];
+                item['changepercent'] = each['sdf'];
+                item['amount'] = each['cjje'];
+                item['pb'] = each['syl1'];
+                item['type'] = 'quotation'
 
                 yield item;
 
@@ -198,6 +205,9 @@ class SharesSpider(scrapy.Spider):
             for key in js['cols'].keys():
                 # self.logger.info(js['data'][key])
                 item[js['cols'][key]] = js['data'][key]
+
+            item['full'] = js['data']['gsqc'];
+            item['type'] = 'company';
             yield item
 
     #关键指数
@@ -217,49 +227,64 @@ class SharesSpider(scrapy.Spider):
             #平均换手率 hsl
             item = {}
             item['now'] = {
-                'cjje':now['now_'+ 'cjje'],
-                'cjbs':now['now_'+ 'cjbs'],
-                'zgb':now['now_'+ 'zgb'],
-                'ltgb':now['now_'+ 'ltgb'],
-                'sjzz':now['now_'+ 'sjzz'],
-                'ltsz':now['now_'+ 'ltsz'],
-                'syl':now['now_'+ 'syl'],
-                'hsl':now['now_'+ 'hsl']
+                'amount':now['now_'+ 'cjje'],
+                'volume':now['now_'+ 'cjbs'],
+                'capital':now['now_'+ 'zgb'],
+                'flowcapital':now['now_'+ 'ltgb'],
+                'mktcap':now['now_'+ 'sjzz'],
+                'nmc':now['now_'+ 'ltsz'],
+                'pb':now['now_'+ 'syl'],
+                'turnoverratio':now['now_'+ 'hsl']
             }
             item['last'] = {
-                'cjje':last['last_'+ 'cjje'],
-                'cjbs':last['last_'+ 'cjbs'],
-                'zgb':last['last_'+ 'zgb'],
-                'ltgb':last['last_'+ 'ltgb'],
-                'sjzz':last['last_'+ 'sjzz'],
-                'ltsz':last['last_'+ 'ltsz'],
-                'syl':last['last_'+ 'syl'],
-                'hsl':last['last_'+ 'hsl']
+                'amount':last['last_'+ 'cjje'],
+                'volume':last['last_'+ 'cjbs'],
+                'capital':last['last_'+ 'zgb'],
+                'flowcapital':last['last_'+ 'ltgb'],
+                'mktcap':last['last_'+ 'sjzz'],
+                'nmc':last['last_'+ 'ltsz'],
+                'pb':last['last_'+ 'syl'],
+                'turnoverratio':last['last_'+ 'hsl']
             }
             item['change'] = {
-                'cjje':change['change_'+ 'cjje'],
-                'cjbs':change['change_'+ 'cjbs'],
-                'zgb':change['change_'+ 'zgb'],
-                'ltgb':change['change_'+ 'ltgb'],
-                'sjzz':change['change_'+ 'sjzz'],
-                'ltsz':change['change_'+ 'ltsz'],
-                'syl':change['change_'+ 'syl'],
-                'hsl':change['change_'+ 'hsl']
+                'amount':change['change_'+ 'cjje'],
+                'volume':change['change_'+ 'cjbs'],
+                'capital':change['change_'+ 'zgb'],
+                'flowcapital':change['change_'+ 'ltgb'],
+                'mktcap':change['change_'+ 'sjzz'],
+                'nmc':change['change_'+ 'ltsz'],
+                'pb':change['change_'+ 'syl'],
+                'turnoverratio':change['change_'+ 'hsl']
             }
+            item['lastDate'] = js['lastDate']
+            item['code'] = response.meta['code']
+
+            item['type'] = 'index';
             yield item;
 
     #最新公告
     def parseAnnIndex(self,response):
         js = json.loads(response.body)
-        yield js
+        code = response.meta['code']
+        for each in js['data']:
+            item = {}
+            item['code'] = code;
+            item['type'] = 'annIndex';
+            item['title'] = each['title']
+            item['publishTime'] = each['publishTime']
+            item['attachPath'] = each['attachPath']
+            item['attachFormat'] = each['attachFormat']
 
-    #市场实时数据
+            yield item;
+
+    #市场分时数据----一分钟一次实时调用
     def parseMarket(self,response):
         self.logger.info(response.url);
         js = json.loads(response.body)
         if js['code'] != '0':
             return;
         data = js['data'];
+        data['type'] = 'market'
         yield data
 
         #市场时间
@@ -291,6 +316,7 @@ class SharesSpider(scrapy.Spider):
         #昨日成交量 (手)
         data['lastVolume']
 
+        #分钟级数据
         #均价 分钟
         data['picavgprice']
         #成交量 分钟
@@ -312,60 +338,144 @@ class SharesSpider(scrapy.Spider):
 
     #市场历史数据
     def parseHistory(self,response):
+        cycle = response.meta['type'];
+        if cycle == 32:
+            cycle = 'day'
+        elif cycle == 33:
+            cycle = 'week'
+        elif cycle == 34:
+            cycle = 'month'
+
         js = json.loads(response.body)
         if js['code'] == '0':
             data = js['data']
             #成交量
             for each in data['picdowndata']:
-                #时间
-                each[0]
-                #成交量
-                each[1]
-            #实时更新
-            for each in data['picupdata']:
-                #时间
-                each[0]
-                #开盘
-                each[1]
-                #最高
-                each[2]
-                #最低
-                each[3]
-                #收盘
-                each[4]
-                #涨跌
-                each[5]
-                #涨幅
-                each[6]
-                #成交量
-                each[7]
-                #成交额
-                each[8]
+                item = {}
+                item["type"] = 'volume';
+                item["code"] = data['code'];
+                item["cycle"] = cycle;
 
-            yield data
+                #时间
+                item['date'] = each[0]
+                #成交量
+                item['volume'] = each[1]
+                #涨跌状态(minus:跌 plus:升)
+                item['status'] = each[2]
+                
+                yield item;
+            #交易数据
+            for each in data['picupdata']:
+                item = {}
+                item["type"] = 'transaction';
+                item["code"] = data['code'];
+                item["cycle"] = cycle;
+                #时间
+                item['date'] = each[0]
+                #开盘
+                item['open'] = each[1]
+                #最高
+                item['high'] = each[2]
+                #最低
+                item['low'] = each[3]
+                #收盘
+                item['trade'] = each[4]
+                #涨跌
+                item['pricechange'] = each[5]
+                #涨幅
+                item['changepercent'] = each[6]
+                #成交量
+                item['volume'] = each[7]
+                #成交额
+                item['amount'] = each[8]
+                yield item;
+
+    def getDay(self,code,type_):
+        if type_ == 'historyDay':
+            date = self.cache.get(type_ +"-"+ code);
+        if date == None:
+            return "1990-12-01";
+        return str(date.decode('utf-8'));
+
+    def setDay(self,code,type_,day):
+        if type_ == 'historyDay':
+            return self.cache.set(type_ +"-"+ code,day);
 
     #获取指定日期数据
     def parseHistoryDay(self,response):
         js = json.loads(response.body)
-        yield js[0]['data'][0];
+        data = js[0]['data']
+
+        if len(data) == 1:
+            each = js[0]['data'][0]
+            # "jyrq":"交易日期","zqdm":"证券代码",
+            # "zqjc":"证券简称","qss":"前收",
+            # "ss":"今收","sdf":"升跌<br>(%)",
+            # "cjje":"成交金额<br>(万元)","syl1":"市盈率"
+            item = {}
+            item["type"] = "historyDay";
+            item["code"] = each["zqdm"];
+            item["name"] = each["zqjc"];
+            item["date"] = each["jyrq"];
+            item["settlement"] = each["qss"];
+            item["trade"] = each["ss"];
+            item["changepercent"] = each["sdf"];
+            item["amount"] = each["cjje"];
+            item["pb"] = each["syl1"];
+            yield item;
+
+        key = response.meta["key"];
+        code = response.meta["code"];
+
+        date = response.meta["date"];
+        d = datetime.datetime.strptime(date, '%Y-%m-%d')
+        delta = datetime.timedelta(days=1)
+        d = d + delta;
+        date = d.strftime('%Y-%m-%d')
+
+        self.setDay(code,"historyDay",date);
+
+        now = datetime.datetime.now()
+        now = now.strftime('%Y-%m-%d');
+        if date < now:
+            meta = {'key':key,'code':code,'date':date,'random':random.random()}
+            yield scrapy.Request(self.historyDay.substitute(meta),
+                meta=meta,
+                callback = self.parseHistoryDay)
 
     #公告
     def parseAnnList(self,response):
-        self.logger.info(response.url);
-
         pageNum = int(response.meta['pageNum'])
         pagesize = int(response.meta['pageSize'])
         js = json.loads(response.body);
+
         totalCount = js['announceCount'];
+        index = totalCount - (pageNum-1)*pagesize;
+        for each in js["data"]:
+            index-=1
+            item = {}
+            item['code'] = each["secCode"][0];
+            item['type'] = 'annIndex';
+            item['sortID'] = index;
+            item['title'] = each['title']
+            item['publishTime'] = each['publishTime']
+            item['attachPath'] = each['attachPath']
+            item['attachFormat'] = each['attachFormat']
+            item['attachSize'] = each['attachSize']
+            yield item;
 
-        yield js['data']
+        if "totalCount" in response.meta:
+            totalCount = response.meta['totalCount'];
 
-        if pageNum * pagesize < totalCount:
+        if pageNum * pagesize < int(totalCount):
             formdata = response.meta;
             formdata['pageNum'] = pageNum + 1;
+            formdata['totalCount'] = totalCount;
             yield scrapy.FormRequest(
                 url = self.annList +'?random='+str(random.random()),
-                formdata = formdata,
+                method="POST",
+                headers={'Content-Type': 'application/json'},
+                body=json.dumps(formdata),
                 meta = formdata,
                 callback = self.parseAnnList
             );
