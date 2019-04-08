@@ -2,39 +2,19 @@
 import scrapy
 import random
 from string import Template
-import logging
 import json
 from bs4 import BeautifulSoup
 import urllib.parse
 import time
-
-def log(name):
-    logger = logging.getLogger(name)
-    # file = logging.FileHandler("./log/Shenzhen.log");
-    # file.setLevel(logging.INFO);
-    # logger.addHandler(file);
-    console = logging.StreamHandler()
-    console.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(relativeCreated)d [%(name)s] %(levelname)s:%(message)s')
-    console.setFormatter(formatter)
-    
-    logger.addHandler(console);
-    return logger;
-
-#组合参数
-def MergeParam(keys,values):
-    param = ''
-    for key in keys:
-        if param != '':
-            param += '&'
-        v = str(values[key])
-        param += str(key) +'='+ urllib.parse.quote(v)
-    return param;
+import sys
+sys.path.append("..")
+from util.logger import getLogger
+from util.params import Merge as MergeParam
 
 class SharesSpider(scrapy.Spider):
     name = 'shares'
     allowed_domains = ['sse.com.cn']
-    logger = log('Shanghai');
+    logger = getLogger('Shanghai');
 
     url = "http://yunhq.sse.com.cn:32041/v1/sh1/list/exchange/equity";
     snap = "http://yunhq.sse.com.cn:32041/v1/sh1/snap/";
@@ -60,27 +40,21 @@ class SharesSpider(scrapy.Spider):
         };
 
         url = self.url + "?" + MergeParam(keys,values);
-        self.logger.info(url);
+        # self.logger.info(url);
         return {
 	        'url':url,
 	        'meta':values
         }
 
     def parseCodes(self, response):
-        pass
         data = response.body[1:][:-1].decode('gbk');
         # self.logger.info(data);
         js = json.loads(data) 
-        self.logger.info(len(js["list"]))
         for each in js['list']:
-            # self.logger.info(each[0])
-            param = self.getSnap_requests(each[0])
-            yield scrapy.Request(param['url'],meta=param['meta'],callback= self.parseSnap)
-            param = self.getLine_requests(each[0]);
-            yield scrapy.Request(param['url'],meta=param['meta'],callback= self.parseLine)
-            param = self.getKLine_requests(each[0]);
-            yield scrapy.Request(param['url'],meta=param['meta'],callback= self.parseKLine)
-            # self.logger.info(each[0])
+            item = {}
+            item['type'] = 'code';
+            item['date'] = js["date"];
+            item['time'] = js["time"];
             #代码
             #简称
             #开盘
@@ -88,18 +62,33 @@ class SharesSpider(scrapy.Spider):
             #最低
             #最新
             #前收
-            #涨跌幅
+            #涨跌额
             #成交量
             #成交额
             #-------公式:T111
             #涨跌
             #振幅
-            break;
+            item['code'] = each[0]
+            item['name'] = each[1]
+            item['open'] = each[2]
+            item['high'] = each[3]
+            item['low'] = each[4]
+            item['trade'] = each[5]
+            item['settlement'] = each[6]
+            item['pricechange'] = each[7]
+            item['volume'] = each[8]
+            item['amount'] = each[9]
+            item['formula'] = each[10]
+            item['changepercent'] = each[11]
+            item['amplitude'] = each[12]
+            yield item;
 
-        #年月日
-        js["date"]; #YYYYMMDD
-        #时分秒
-        js["time"]; #HHMMSS
+            param = self.getSnap_requests(each[0])
+            yield scrapy.Request(param['url'],meta=param['meta'],callback= self.parseSnap)
+            param = self.getLine_requests(each[0]);
+            yield scrapy.Request(param['url'],meta=param['meta'],callback= self.parseLine)
+            param = self.getKLine_requests(each[0]);
+            yield scrapy.Request(param['url'],meta=param['meta'],callback= self.parseKLine)
 
         return;
 
@@ -120,7 +109,7 @@ class SharesSpider(scrapy.Spider):
             "_":int(time.time()*1000)
         };
         url = self.snap + str(code) + "?" + MergeParam(keys,values);
-        self.logger.info(url);
+        # self.logger.info(url);
         return {
             'url':url,
             'meta':values
@@ -129,12 +118,14 @@ class SharesSpider(scrapy.Spider):
 
     def parseSnap(self,response):
         data = response.body[1:][:-1].decode('gbk');
-        # self.logger.info(data);
         js = json.loads(data)
-        #code: "000003"
-        #date: 20190321
-        #time: 154504
-        # self.logger.info(js['snap']);
+
+        item = {}
+        item['type'] = 'snap';
+        item['date'] = js["date"];
+        item['time'] = js["time"];
+        item['code'] = js["code"];
+        
         #简称
         #最新价
         #涨幅
@@ -148,6 +139,22 @@ class SharesSpider(scrapy.Spider):
         #最高
         #最低
         #E111=股票
+        each = js['snap']
+        item['name'] = each[0]
+        item['trade'] = each[1]
+        item['pricechange'] = each[2]
+        item['changepercent'] = each[3]
+        item['amount'] = each[4]
+        item['volume'] = each[5]
+        item['open'] = each[6]
+        item['settlement'] = each[7]
+        item['high'] = each[10]
+        item['low'] = each[11]
+        item['amplitude'] = each[12]
+
+        item['sells'] = each[8]
+        item['buys'] = each[9]
+        yield item;
 
     #分时线
     def getLine_requests(self,code):
@@ -166,7 +173,7 @@ class SharesSpider(scrapy.Spider):
             "_":int(time.time()*1000)
         };
         url = self.line + str(code) + "?" + MergeParam(keys,values);
-        self.logger.info(url);
+        # self.logger.info(url);
         return {
             'url':url,
             'meta':values
@@ -175,7 +182,6 @@ class SharesSpider(scrapy.Spider):
 
     def parseLine(self,response):
         data = response.body[1:][:-1].decode('gbk');
-        self.logger.info(data);
         js = json.loads(data)
 
         #code: "600000"     代码
@@ -187,23 +193,34 @@ class SharesSpider(scrapy.Spider):
         #total: 241   总数
         #date: 20190321
         #time: 154508
-        js['line'];
+        item = {}
+        item['type'] = 'line';
+        item['date'] = js["date"];
+        item['time'] = js["time"];
+        item['code'] = js["code"];
+
+        item['settlement'] = js['prev_close']
+        item['high'] = js['highest']
+        item['low'] = js['lowest']
+        # js['line'];
         #时间
         #成交价
         #成交量
+        item['line'] = js['line']
+        yield item;
 
     #日线
     def getKLine_requests(self,code):
         keys = ["callback","select","begin","end","_"]
         values = {
             "callback":"",
-            "begin":-300,
+            "begin":0,
             "end":-1,
             "select":"date,open,high,low,close,volume",
             "_":int(time.time()*1000)
         };
         url = self.kline + str(code) + "?" + MergeParam(keys,values);
-        self.logger.info(url);
+        # self.logger.info(url);
         return {
             'url':url,
             'meta':values
@@ -212,17 +229,30 @@ class SharesSpider(scrapy.Spider):
 
     def parseKLine(self,response):
         data = response.body[1:][:-1].decode('gbk');
-        # self.logger.info(data);
         js = json.loads(data)
 
         # code: "600000" #代码
         # begin: 4273 #开始索引
         # end: 4572    #结束索引
         # total: 4572 #总数
-        js["kline"];
+
+        item = {}
+        item['type'] = 'kline';
+        item['code'] = js['code'];
+
+        # js["kline"];
         #时间
         #开盘
         #最高
         #最低
         #收盘
         #成交量
+
+        for each in js["kline"]:
+            item['date'] = each[0];
+            item['open'] = each[1]
+            item['high'] = each[2]
+            item['low'] = each[3]
+            item['trade'] = each[4]
+            item['volume'] = each[5]
+            yield item;
