@@ -6,7 +6,7 @@
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
-
+import random
 
 class ShenzhenSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -69,6 +69,11 @@ class ShenzhenDownloaderMiddleware(object):
         return s
 
     def process_request(self, request, spider):
+        if request.url.find('random=') == -1:
+            if request.url.find('?') == -1:
+                request.url += '?random='+random.random()
+            else:
+                request.url += '&random='+random.random()
         # Called for each request that goes through the downloader
         # middleware.
 

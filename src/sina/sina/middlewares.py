@@ -6,9 +6,9 @@
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
-import time
 
-class ShanghaiSpiderMiddleware(object):
+
+class SinaSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the spider middleware does not modify the
     # passed objects.
@@ -56,7 +56,7 @@ class ShanghaiSpiderMiddleware(object):
         spider.logger.info('Spider opened: %s' % spider.name)
 
 
-class ShanghaiDownloaderMiddleware(object):
+class SinaDownloaderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the downloader middleware does not modify the
     # passed objects.
@@ -69,11 +69,6 @@ class ShanghaiDownloaderMiddleware(object):
         return s
 
     def process_request(self, request, spider):
-        if request.url.find('_=') == -1:
-            if request.url.find('?') == -1:
-                request.url += '?_='+str(time.time()*1000)
-            else:
-                request.url += '&_='+str(time.time()*1000)
         # Called for each request that goes through the downloader
         # middleware.
 
