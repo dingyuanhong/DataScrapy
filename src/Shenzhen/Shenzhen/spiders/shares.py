@@ -11,9 +11,9 @@ import os
 import sys
 sys.path.append("..")
 from util.logger import getLogger
+from scrapy_redis.spiders import RedisSpider
 
-
-class SharesSpider(scrapy.Spider):
+class SharesSpider(RedisSpider):
     name = 'shares'
     allowed_domains = ['szse.cn']
     
@@ -89,14 +89,12 @@ class SharesSpider(scrapy.Spider):
                         'date':date,
                         'random':random.random()
                     };
-                    # yield scrapy.Request(self.historyDay.substitute(meta),
-                    #     meta=meta,
-                    #     callback = self.parseHistoryDay)
+                    yield scrapy.Request(self.historyDay.substitute(meta),
+                        meta=meta,
+                        callback = self.parseHistoryDay)
 
                     if key != 'tab1':
                         continue;
-
-                    continue;
 
                     #股票行情
                     soup = BeautifulSoup(each['jqhq'],'lxml')

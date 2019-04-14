@@ -92,3 +92,10 @@ ITEM_PIPELINES = {
 
 LOG_LEVEL= 'ERROR'
 # LOG_FILE = "log/totle.log"
+
+#分布式
+SCHEDULER = 'scrapy_redis.scheduler.Scheduler'
+DUPEFILTER_CLASS = 'scrapy_redis.dupefilter.RFPDupeFilter'
+
+REDIS_HOST = '127.0.0.1'
+REDIS_PORT = 6379

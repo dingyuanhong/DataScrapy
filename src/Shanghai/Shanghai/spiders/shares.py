@@ -20,11 +20,36 @@ class SharesSpider(scrapy.Spider):
     snap = "http://yunhq.sse.com.cn:32041/v1/sh1/snap/";
     line = 'http://yunhq.sse.com.cn:32041/v1/sh1/line/'
     kline = 'http://yunhq.sse.com.cn:32041/v1/sh1/dayk/'
+    stock = 'http://query.sse.com.cn/security/stock/getStockListData2.do'
 
     def start_requests(self):
         begin = 0;
         param = self.getCode_requests(begin)
         yield scrapy.Request(param['url'],meta=param['meta'],callback= self.parseCodes)
+
+    def getStock_requests(self,code,page,stock):
+        keys = ["isPagination","stockCode","csrcCode","areaName","stockType",
+        "pageHelp.cacheSize","pageHelp.beginPage","pageHelp.pageSize","pageHelp.pageNo",
+        "_"]
+        #stock : 1 A股 2 B股
+        values = {
+            "isPagination":true,
+            "stockCode":code,
+            "csrcCode":"",
+            "areaName":"",
+            "stockType":stock,
+            "pageHelp.cacheSize":1,
+            "pageHelp.beginPage":page,
+            "pageHelp.pageSize":25,
+            "pageHelp.pageNo":page,
+            "_":int(time.time()*1000)
+        };
+        url = self.stock + "?" + MergeParam(keys,values);
+        # self.logger.info(url);
+        return {
+            'url':url,
+            'meta':values
+        }
 
     #股票代码
     def getCode_requests(self,begin):
