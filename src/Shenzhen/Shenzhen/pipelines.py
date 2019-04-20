@@ -19,7 +19,7 @@ class ShenzhenPipeline(object):
 		self.company = self.db.company  #公司
 		self.quotation = self.db.quotation	#个股详情
 		self.index = self.db.index	#关键指标
-		self.annIndex = self.db.annIndex	#关键指标
+		self.annIndex = self.db.annIndex	#公告
 		self.market = self.db.market 		#市场
 		self.historyDay = self.db.historyDay	#历史日线
 		self.volume = self.db.volume	#成交量

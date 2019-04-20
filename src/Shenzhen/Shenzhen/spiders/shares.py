@@ -198,7 +198,7 @@ class SharesSpider(RedisSpider):
     #公司信息
     def parseCompany(self,response):
         js = json.loads(response.body)
-        if js['code'] == '0':
+        if js['code'] == '0' and js['data'] != None:
             item = {}
             for key in js['cols'].keys():
                 # self.logger.info(js['data'][key])
