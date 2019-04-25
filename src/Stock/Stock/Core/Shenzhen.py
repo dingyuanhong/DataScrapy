@@ -17,7 +17,7 @@ class Core:
 		meta = param;
 		yield {
 			'url':core['url'].substitute(meta),
-			'meta':{**meta,**{'type':core['type']}}
+			'meta':{**meta,**{'scrapy:type':core['type']}}
 		}
 	@staticmethod
 	def subDone(core,meta,data,item):
@@ -83,7 +83,7 @@ class HistoryDay:
 		key = meta['key']
 		code = item['code']
 		date = Cache.get(code + "_historyDay",'1990-12-01');
-		yield core['make']({
+		yield core['get'](core,{
 			'key':key,
 			'code':code,
 			'date':date
@@ -110,7 +110,7 @@ class HistoryDay:
 			item["amount"] = each["cjje"];
 			item["pb"] = each["syl1"];
 			yield item;
-		yield core['end'](core,meta);
+		yield core['end'](core,meta,data);
 	@staticmethod
 	def end(core,meta,data):
 		key = meta["key"];
@@ -351,27 +351,34 @@ class AnnList:
 	def sub(core,meta,data,item):
 		key = meta['key']
 		code = item['code'];
-		return core['get'](core,{'pagenum':1,'pagesize':30,'code':code})
+		return core['get'](core,{'pageNum':1,'pageSize':30,'code':code})
 	@staticmethod
 	def get(core,param):
 		formdata = {
 			'channelCode': ["listedNotice_disc"],
-			'pageNum': param['pagenum'],
-			'pageSize': param['pagesize'],
+			'pageNum': param['pageNum'],
+			'pageSize': param['pageSize'],
 			'seDate': ["", ""],
 			'stock': [param['code']]
 		}
-		return {
+		yield {
 			'url' : core['url'],
 			'method':"POST",
 			'headers':{'Content-Type': 'application/json'},
 			'body':json.dumps(formdata),
-			'meta' : {**param,**{'type':core['type']}}
+			'meta' : {**param,**{'scrapy:type':core['type']}}
 		}
 	@staticmethod
 	def parse(core,meta,body):
 		pass
 		js = json.loads(body);
+		
+		pageNum = int(meta['pageNum'])
+		pagesize = int(meta['pageSize'])
+		totalCount = int(js['announceCount']);
+
+		index = totalCount - (pageNum-1)*pagesize;
+
 		for each in js["data"]:
 			index-=1
 			item = {}
@@ -404,6 +411,7 @@ class AnnList:
 
 cores = [
 {
+	'priority':9,
 	'type':'Report',
 	'url':Template("http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1110x&TABKEY=${key}&PAGENO=${pageno}"),
 	'get':Core.get,
@@ -421,13 +429,16 @@ cores = [
 	]
 },
 {
+	'priority':8,
 	'type':'HistoryDay',
 	'url':Template('http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1815_stock&TABKEY=${key}&radioClass=00%2C20%2C30&txtSite=all&txtDMorJC=${code}&txtBeginDate=${date}&txtEndDate=${date}'),
 	'get':Core.get,
 	'parse':HistoryDay.parse,
+	'end':HistoryDay.end,
 	'subGet':HistoryDay.sub,
 },
 {
+	'priority':7,
 	'type':'Quotation',
 	'url':Template('http://www.szse.cn/api/report${url}'),
 	'get':Core.get,
@@ -435,6 +446,7 @@ cores = [
 	'subGet':Quotation.sub,
 },
 {
+	'priority':6,
 	'type':'Company',
 	'url':Template('http://www.szse.cn/api/report/index/companyGeneralization?secCode=${code}'),
 	'get':Core.get,
@@ -442,6 +454,7 @@ cores = [
 	'subGet':Company.sub
 },
 {
+	'priority':5,
 	'type':'Index',
 	'url':Template('http://www.szse.cn/api/report/index/companyGeneralization?secCode=${code}'),
 	'get':Core.get,
@@ -449,6 +462,7 @@ cores = [
 	'subGet':Index.sub
 },
 {
+	'priority':4,
 	'type':'AnnIndex',
 	'url':Template('http://www.szse.cn/api/disc/announcement/annIndex?secCode=${code}&channelCode=${channel}'),
 	'get':Core.get,
@@ -456,6 +470,7 @@ cores = [
 	'subGet':AnnIndex.sub
 },
 {
+	'priority':3,
 	'type':'Market',
 	'url':Template('http://www.szse.cn/api/market/ssjjhq/getTimeData?code=${code}&marketId=1'),
 	'get':Core.get,
@@ -463,6 +478,7 @@ cores = [
 	'subGet':Market.sub
 },
 {
+	'priority':2,
 	'type':'History',
 	'url':Template('http://www.szse.cn/api/market/ssjjhq/getHistoryData?code=${code}&marketId=1&cycleType=${type}'),
 	'make':Core.get,
@@ -470,6 +486,7 @@ cores = [
 	'subGet':History.sub
 },
 {
+	'priority':1,
 	'type':'AnnList',
 	'url':'http://www.szse.cn/api/disc/announcement/annList',
 	'get':AnnList.get,

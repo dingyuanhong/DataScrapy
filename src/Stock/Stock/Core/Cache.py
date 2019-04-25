@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*-
 
 import redis
+from scrapy.conf import settings
+import logging
 
 class RedisCache:
-	pool = redis.ConnectionPool(host='127.0.0.1', port=6379)
+	HOST = settings.get('REDIS_HOST')
+	PORT = settings.get('REDIS_PORT')
+	pool = redis.ConnectionPool(host=HOST, port=PORT)
 	cache = redis.Redis(connection_pool=pool)
 
 	def get(self,name,default):
 		value = self.cache.get(name);
-		if date == None:
+		if value == None:
 			return default;
-		return str(date.decode('utf-8'));
+		return str(value.decode('utf-8'));
 
 	def set(self,name,value):
 		return self.cache.set(name,value);

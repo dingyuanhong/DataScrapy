@@ -53,7 +53,7 @@ class StockSpiderMiddleware(object):
             yield r
 
     def spider_opened(self, spider):
-        spider.logger.info('Spider opened: %s' % spider.name)
+        spider.logger.info('Spider Middleware opened: %s' % spider.name)
 
 
 class StockDownloaderMiddleware(object):
@@ -69,11 +69,15 @@ class StockDownloaderMiddleware(object):
         return s
 
     def process_request(self, request, spider):
-        if request.url.find('random=') == -1:
-            if request.url.find('?') == -1:
-                request.url += '?random='+random.random()
+        if request.url.find('robots.txt') != -1:
+            return None;
+        url = request.url;
+        if url.find('random=') == -1:
+            if url.find('?') == -1:
+                url += '?random='+str(random.random())
             else:
-                request.url += '&random='+random.random()
+                url += '&random='+str(random.random())
+            request._set_url(url);
         # Called for each request that goes through the downloader
         # middleware.
 
@@ -105,4 +109,4 @@ class StockDownloaderMiddleware(object):
         pass
 
     def spider_opened(self, spider):
-        spider.logger.info('Spider opened: %s' % spider.name)
+        spider.logger.info('Downloader Spider opened: %s' % spider.name)
