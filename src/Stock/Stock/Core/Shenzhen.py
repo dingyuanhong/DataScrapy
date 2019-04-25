@@ -8,6 +8,8 @@ import datetime
 import os
 import copy
 from .Cache import Cache
+import logging
+logger = logging.getLogger('Shenzhen')
 
 class Core:
 	@staticmethod
@@ -15,7 +17,7 @@ class Core:
 		meta = param;
 		yield {
 			'url':core['url'].substitute(meta),
-			'meta':meta.update({'type':core['type']})
+			'meta':{**meta,**{'type':core['type']}}
 		}
 	@staticmethod
 	def subDone(core,meta,data,item):
@@ -38,7 +40,7 @@ class Report:
 		for data in js:
 			if data['metadata']['tabkey'] == key:
 				for each in data['data']:
-					item = Report.parseItem(core,each);
+					item = Report.parseItem(core,data,each);
 					yield item;
 					yield Core.subDone(core,meta,each,item);
 				yield core['end'](core,meta,data);
@@ -54,7 +56,7 @@ class Report:
 			yield core['get'](core,meta)
 		yield None;
 	@staticmethod
-	def parseItem(core,each):
+	def parseItem(core,data,each):
 		soup = BeautifulSoup(each['gsjc'],"lxml");
 		item = {}
 		#编号
@@ -364,7 +366,7 @@ class AnnList:
 			'method':"POST",
 			'headers':{'Content-Type': 'application/json'},
 			'body':json.dumps(formdata),
-			'meta' : param.update({'type':core['type']})
+			'meta' : {**param,**{'type':core['type']}}
 		}
 	@staticmethod
 	def parse(core,meta,body):
