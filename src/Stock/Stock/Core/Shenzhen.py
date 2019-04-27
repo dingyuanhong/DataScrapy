@@ -2,7 +2,10 @@
 
 import random
 from string import Template
-import json
+# import json
+# import simdjson
+import ujson as json
+# import simdjson as json
 from bs4 import BeautifulSoup
 import datetime
 import os
@@ -44,17 +47,26 @@ class Report:
 					yield item;
 					yield Core.subDone(core,meta,each,item);
 				yield core['end'](core,meta,data);
+		yield None
 	@staticmethod
 	def end(core,meta,data):
+		if 'scrapy:loop' in meta:
+			if not meta['scrapy:loop']:
+				yield None;
+				return;
+
 		pageno = int(data['metadata']['pageno'])
 		pagesize = int(data['metadata']['pagesize'])
 		total = int(data['metadata']['recordcount'])
 		while pageno * pagesize < total:
 			pageno = pageno +1;
 			meta = copy.deepcopy(meta)
+			meta['scrapy:loop'] = False;
 			meta['pageno'] = pageno;
-			yield core['get'](core,meta)
+			# yield core['get'](core,meta)
+			yield meta;
 		yield None;
+
 	@staticmethod
 	def parseItem(core,data,each):
 		soup = BeautifulSoup(each['gsjc'],"lxml");
@@ -83,11 +95,17 @@ class HistoryDay:
 		key = meta['key']
 		code = item['code']
 		date = Cache.get(code + "_historyDay",'1990-12-01');
-		yield core['get'](core,{
+		# yield core['get'](core,{
+		# 	'key':key,
+		# 	'code':code,
+		# 	'date':date
+		# });
+		yield {
+			'scrapy:type':core['type'],
 			'key':key,
 			'code':code,
 			'date':date
-		});
+		}
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body)
@@ -113,7 +131,11 @@ class HistoryDay:
 		yield core['end'](core,meta,data);
 	@staticmethod
 	def end(core,meta,data):
-		key = meta["key"];
+		if 'scrapy:loop' in meta:
+			if not meta['scrapy:loop']:
+				yield None;
+				return;
+
 		code = meta["code"];
 		date = meta["date"];
 
@@ -130,8 +152,10 @@ class HistoryDay:
 			Cache.set(code + '_historyDay',date);
 
 			meta = copy.deepcopy(meta);
+			meta['scrapy:loop'] = False;
 			meta['date'] = date;
-			yield core['get'](core,meta);
+			# yield core['get'](core,meta);
+			yield meta;
 
 			d = d + delta;
 			date = d.strftime('%Y-%m-%d')
@@ -142,7 +166,11 @@ class Quotation:
 	def sub(core,meta,data,item):
 		soup = BeautifulSoup(data['jqhq'],'lxml')
 		url = soup.a.get('a-param');
-		yield core['get'](core,{'url':url})
+		# yield core['get'](core,{'url':url})
+		yield {
+			'scrapy:type':core['type'],
+			'url':url
+		}
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body) 
@@ -168,7 +196,12 @@ class Company:
 	def sub(core,meta,data,item):
 		key = meta['key']
 		code = item['code'];
-		yield core['get'](core,{'key':key,'code':code})
+		# yield core['get'](core,{'key':key,'code':code})
+		yield {
+			'scrapy:type':core['type'],
+			'key':key,
+			'code':code
+		}
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body)
@@ -187,10 +220,16 @@ class Index:
 	def sub(core,meta,data,item):
 		key = meta['key']
 		code = item['code'];
-		yield core['get'](core,{'key':key,'code':code})
+		# yield core['get'](core,{'key':key,'code':code})
+		yield {
+			'scrapy:type':core['type'],
+			'key':key,
+			'code':code
+		}
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body)
+
 		if js['code'] == '0':
 			now = js['data'][0]
 			last = js['data'][1]
@@ -246,9 +285,21 @@ class AnnIndex:
 		key = meta['key']
 		code = item['code'];
 		#最新公告
-		yield core['get'](core,{'key':key,'code':code,"channel":"listedNotice_disc"})
+		# yield core['get'](core,{'key':key,'code':code,"channel":"listedNotice_disc"})
+		yield {
+			'scrapy:type':core['type'],
+			'key':key,
+			'code':code,
+			"channel":"listedNotice_disc"
+		}
 		#定期报告
-		yield core['get'](core,{'key':key,'code':code,"channel":"fixed_disc"})
+		# yield core['get'](core,{'key':key,'code':code,"channel":"fixed_disc"})
+		yield {
+			'scrapy:type':core['type'],
+			'key':key,
+			'code':code,
+			"channel":"fixed_disc"
+		}
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body)
@@ -270,7 +321,12 @@ class Market:
 	def sub(core,meta,data,item):
 		key = meta['key']
 		code = item['code'];
-		return core['get'](core,{'key':key,'code':code})
+		# return core['get'](core,{'key':key,'code':code})
+		yield {
+			'scrapy:type':core['type'],
+			'key':key,
+			'code':code,
+		}
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body)
@@ -287,11 +343,30 @@ class History:
 		key = meta['key']
 		code = item['code'];
 		#日线
-		yield core['make'](core,{'key':key,'code':code,'type':32})
+		# yield core['make'](core,{'key':key,'code':code,'type':32})
 		#周线
-		yield core['make'](core,{'key':key,'code':code,'type':33})
+		# yield core['make'](core,{'key':key,'code':code,'type':33})
 		#月线
-		yield core['make'](core,{'key':key,'code':code,'type':34})
+		# yield core['make'](core,{'key':key,'code':code,'type':34})
+
+		yield {
+			'scrapy:type':core['type'],
+			'key':key,
+			'code':code,
+			'type':32
+		}
+		yield {
+			'scrapy:type':core['type'],
+			'key':key,
+			'code':code,
+			'type':33
+		}
+		yield {
+			'scrapy:type':core['type'],
+			'key':key,
+			'code':code,
+			'type':34
+		}
 	@staticmethod
 	def parse(core,meta,body):
 		cycle = meta['type'];
@@ -351,7 +426,13 @@ class AnnList:
 	def sub(core,meta,data,item):
 		key = meta['key']
 		code = item['code'];
-		return core['get'](core,{'pageNum':1,'pageSize':30,'code':code})
+		# return core['get'](core,{'pageNum':1,'pageSize':30,'code':code})
+		yield {
+			'scrapy:type':core['type'],
+			'pageNum':1,
+			'pageSize':30,
+			'code':code
+		}
 	@staticmethod
 	def get(core,param):
 		formdata = {
@@ -394,6 +475,11 @@ class AnnList:
 		yield core['end'](core,meta,js);
 	@staticmethod
 	def end(core,meta,data):
+		if 'scrapy:loop' in meta:
+			if not meta['scrapy:loop']:
+				yield None;
+				return;
+
 		pageNum = int(meta['pageNum'])
 		pagesize = int(meta['pageSize'])
 		totalCount = int(data['announceCount']);
@@ -404,21 +490,25 @@ class AnnList:
 		while pageNum * pagesize < totalCount:
 			pageNum = pageNum + 1;
 			meta = copy.deepcopy(meta);
+			meta['scrapy:loop'] = False
 			meta['pageNum'] = pageNum;
 			meta['totalCount'] = totalCount;
-			yield core['get'](core,meta);
+			# yield core['get'](core,meta);
+			yield meta
 		yield None;
 
 cores = [
 {
-	'priority':9,
+	'scropy:request':{
+		'priority':9,
+	},
 	'type':'Report',
 	'url':Template("http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1110x&TABKEY=${key}&PAGENO=${pageno}"),
 	'get':Core.get,
 	'parse':Report.parse,
 	'end':Report.end,
 	'subItem':[
-		'HistoryDay',
+		# 'HistoryDay',
 		'Quotation',
 		'Company',
 		'Index',
@@ -429,7 +519,9 @@ cores = [
 	]
 },
 {
-	'priority':8,
+	'scrapy:request':{
+		'priority':7,
+	},
 	'type':'HistoryDay',
 	'url':Template('http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1815_stock&TABKEY=${key}&radioClass=00%2C20%2C30&txtSite=all&txtDMorJC=${code}&txtBeginDate=${date}&txtEndDate=${date}'),
 	'get':Core.get,
@@ -438,7 +530,9 @@ cores = [
 	'subGet':HistoryDay.sub,
 },
 {
-	'priority':7,
+	'scrapy:request':{
+		'priority':6,
+	},
 	'type':'Quotation',
 	'url':Template('http://www.szse.cn/api/report${url}'),
 	'get':Core.get,
@@ -446,7 +540,9 @@ cores = [
 	'subGet':Quotation.sub,
 },
 {
-	'priority':6,
+	'scrapy:request':{
+		'priority':5,
+	},
 	'type':'Company',
 	'url':Template('http://www.szse.cn/api/report/index/companyGeneralization?secCode=${code}'),
 	'get':Core.get,
@@ -454,15 +550,19 @@ cores = [
 	'subGet':Company.sub
 },
 {
-	'priority':5,
+	'scrapy:request':{
+		'priority':4,
+	},
 	'type':'Index',
-	'url':Template('http://www.szse.cn/api/report/index/companyGeneralization?secCode=${code}'),
+	'url':Template('http://www.szse.cn/api/report/index/stockKeyIndexGeneralization?secCode=${code}'),
 	'get':Core.get,
 	'parse':Index.parse,
 	'subGet':Index.sub
 },
 {
-	'priority':4,
+	'scrapy:request':{
+		'priority':3,
+	},
 	'type':'AnnIndex',
 	'url':Template('http://www.szse.cn/api/disc/announcement/annIndex?secCode=${code}&channelCode=${channel}'),
 	'get':Core.get,
@@ -470,7 +570,9 @@ cores = [
 	'subGet':AnnIndex.sub
 },
 {
-	'priority':3,
+	'scrapy:request':{
+		'priority':2,
+	},
 	'type':'Market',
 	'url':Template('http://www.szse.cn/api/market/ssjjhq/getTimeData?code=${code}&marketId=1'),
 	'get':Core.get,
@@ -478,15 +580,19 @@ cores = [
 	'subGet':Market.sub
 },
 {
-	'priority':2,
+	'scrapy:request':{
+		'priority':1,
+	},
 	'type':'History',
 	'url':Template('http://www.szse.cn/api/market/ssjjhq/getHistoryData?code=${code}&marketId=1&cycleType=${type}'),
-	'make':Core.get,
+	'get':Core.get,
 	'parse':History.parse,
 	'subGet':History.sub
 },
 {
-	'priority':1,
+	'scrapy:request':{
+		'priority':0,
+	},
 	'type':'AnnList',
 	'url':'http://www.szse.cn/api/disc/announcement/annList',
 	'get':AnnList.get,

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
+from scrapy.conf import settings
 import random
 from string import Template
 import json
@@ -34,11 +35,9 @@ class SharesSpider(scrapy.Spider):
 	def start_requests(self):
 		for each in self.config:
 			core = findCore(each['scrapy:type'])
-			for request in core['get'](core,each):
-				if 'method' not in request:
-					yield scrapy.Request(request['url'],meta=request['meta'],callback= self.parse)
-				else:
-					yield scrapy.FormRequest(**request,callback = self.parse);
+
+			for req in core['get'](core,each):
+				yield self.getRequest(core,req)
 
 	def Generator3Layer(self,data):
 		if isinstance(data,GeneratorType):
@@ -59,6 +58,19 @@ class SharesSpider(scrapy.Spider):
 		else:
 			yield data;
 
+	def getRequest(self,core,req):
+		key = 'scrapy:request' 
+		if key in core and len(core[key].keys()) > 0:
+			if 'method' not in req:
+				return scrapy.Request(req['url'],meta=req['meta'],**core[key],callback= self.parse)
+			else:
+				return scrapy.FormRequest(**req,**core[key],callback = self.parse);
+		else:
+			if 'method' not in req:
+				return scrapy.Request(req['url'],meta=req['meta'],callback= self.parse)
+			else:
+				return scrapy.FormRequest(**req,callback = self.parse);
+
 	def parse(self, response):
 		meta = copy.deepcopy(response.meta);
 		del meta['download_slot'];  #域
@@ -66,20 +78,25 @@ class SharesSpider(scrapy.Spider):
 		del meta['download_timeout']; #超时
 		del meta['depth'];			#深度
 
-		self.logger.info(response.url 
-			+ " 延迟:" +  str(response.meta['download_latency']) 
-			+ " 超时:" + str(response.meta['download_timeout']));
+		# self.logger.info(response.url 
+		# 	+ " 延迟:" +  str(response.meta['download_latency']) 
+		# 	+ " 超时:" + str(response.meta['download_timeout']));
+		
+		if settings.get('IGNOREREQUEST'):
+			return;
 
 		body = response.body.decode('utf-8')
 		# self.logger.info(response.url);
 		# self.logger.info(meta);
 		# self.logger.info(body);
-		# return;
+
 		core = findCore(meta['scrapy:type'])
 		result = core['parse'](core,meta,body);
+
 		for data in result:
 			if data == None:
 				continue;
+			# self.logger.info(data)
 			if isinstance(data,GeneratorType):
 				for each in self.Generator3Layer(data):
 					if each == None:
@@ -87,11 +104,10 @@ class SharesSpider(scrapy.Spider):
 					if not isinstance(each,dict):
 						self.logger.error("type error:" + each);
 						continue;
-					req = each;
-					if 'method' not in req:
-						yield scrapy.Request(req['url'],meta=req['meta'],callback= self.parse)
-					else:
-						yield scrapy.FormRequest(**req,callback = self.parse);
+
+					c = findCore(each['scrapy:type'])
+					for req in c['get'](c,each):
+						yield self.getRequest(c,req)
 			else:
 				if data != None:
 					yield data;

@@ -19,5 +19,7 @@ class RedisCache:
 	def set(self,name,value):
 		return self.cache.set(name,value);
 
+	def exists(self,name):
+		return self.cache.exists(name);
 
 Cache = RedisCache();

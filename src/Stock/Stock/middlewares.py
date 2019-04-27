@@ -6,6 +6,8 @@
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
+from scrapy.conf import settings
+from scrapy.exceptions import IgnoreRequest
 import random
 
 class StockSpiderMiddleware(object):
@@ -69,6 +71,8 @@ class StockDownloaderMiddleware(object):
         return s
 
     def process_request(self, request, spider):
+        if settings.get('IGNOREREQUEST'):
+            raise IgnoreRequest;
         if request.url.find('robots.txt') != -1:
             return None;
         url = request.url;
