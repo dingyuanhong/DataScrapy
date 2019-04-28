@@ -523,13 +523,13 @@ cores = [
 	'parse':Report.parse,
 	'end':Report.end,
 	'subItem':[
-		# 'Quotation',
-		# 'Company',
-		# 'Index',
-		# 'AnnIndex',
-		# 'Market',
-		# 'History',
-		# 'AnnList'
+		'Quotation',
+		'Company',
+		'Index',
+		'AnnIndex',
+		'Market',
+		'History',
+		'AnnList'
 	]
 },
 {

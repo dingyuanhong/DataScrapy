@@ -78,9 +78,9 @@ class SharesSpider(scrapy.Spider):
 		del meta['download_timeout']; #超时
 		del meta['depth'];			#深度
 
-		self.logger.info(response.url 
-			+ " 延迟:" +  str(response.meta['download_latency']) 
-			+ " 超时:" + str(response.meta['download_timeout']));
+		# self.logger.info(response.url 
+		# 	+ " 延迟:" +  str(response.meta['download_latency']) 
+		# 	+ " 超时:" + str(response.meta['download_timeout']));
 		
 		if settings.get('IGNOREREQUEST'):
 			return;

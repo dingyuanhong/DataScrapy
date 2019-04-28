@@ -68,8 +68,8 @@ DOWNLOADER_MIDDLEWARES = {
 ITEM_PIPELINES = {
    'Stock.pipelines.StockPipeline': 300,
    'Stock.pipelines.StockRedisPipeline': 301,
-   'Stock.pipelines.StockMQPipeline': 302,
-   # 'Stock.pipelines.StockDBPipeline': 304,
+   # 'Stock.pipelines.StockMQPipeline': 302,
+   'Stock.pipelines.StockDBPipeline': 304,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
