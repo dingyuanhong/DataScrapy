@@ -11,12 +11,12 @@ from collections import Iterable, Iterator
 import redis
 import os
 import copy
+from scrapy_redis.spiders import RedisSpider
+
 import sys
 sys.path.append("..")
 from util.logger import getLogger
-from scrapy_redis.spiders import RedisSpider
-import ..Core.Shenzhen
-from scrapy_redis.spiders import RedisSpider
+import Stock.Core.Shenzhen as Shenzhen
 
 class SharesSpider(scrapy.Spider):
 	name = 'shares'
@@ -35,8 +35,7 @@ class SharesSpider(scrapy.Spider):
 
 	def start_requests(self):
 		for each in self.config:
-			core = findCore(each['scrapy:type'])
-
+			core = Shenzhen.findCore(each)
 			for req in core['get'](core,each):
 				yield self.getRequest(core,req)
 
@@ -79,9 +78,9 @@ class SharesSpider(scrapy.Spider):
 		del meta['download_timeout']; #超时
 		del meta['depth'];			#深度
 
-		# self.logger.info(response.url 
-		# 	+ " 延迟:" +  str(response.meta['download_latency']) 
-		# 	+ " 超时:" + str(response.meta['download_timeout']));
+		self.logger.info(response.url 
+			+ " 延迟:" +  str(response.meta['download_latency']) 
+			+ " 超时:" + str(response.meta['download_timeout']));
 		
 		if settings.get('IGNOREREQUEST'):
 			return;

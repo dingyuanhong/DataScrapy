@@ -16,6 +16,9 @@ import ujson as json
 
 from .Core.MQQueue import MQPublish
 
+import logging
+logger = logging.getLogger('Shenzhen')
+
 class StockPipeline(object):
 	def process_item(self, item, spider):
 		if "scrapy:type" not in item:
@@ -53,7 +56,8 @@ class StockRedisPipeline(object):
 		if self.cache.exists(key):
 			raise DropItem("Already consume item:%s" % item)
 
-		self.cache.set(key,json.dumps(item));
+		self.cache.set(key,'');
+		# self.cache.set(key,json.dumps(item));
 
 		return item
 
@@ -69,7 +73,7 @@ class StockMQPipeline(object):
 		}
 		args = {
 			'HOST':'127.0.0.1',
-			'PORT':'5367',
+			'PORT':'5672',
 			'VHOST':'/',
 			'credentials':{
 				'name':'admin',

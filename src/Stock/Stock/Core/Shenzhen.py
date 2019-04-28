@@ -99,7 +99,10 @@ class HistoryDay:
 	@staticmethod
 	def sub(core,meta,data,item):
 		key = meta['key']
-		code = item['code']
+		if 'code' in meta:
+			code = meta['code']
+		else:
+			code = item['code']
 		date = Cache.get(code + "_historyDay",'1990-12-01');
 		# yield core['get'](core,{
 		# 	'key':key,
@@ -208,14 +211,32 @@ class Company:
 	def parse(core,meta,body):
 		js = json.loads(body)
 		if js['code'] == '0' and js['data'] != None:
+			data = js['data']
+			cols = js['cols']
 			item = {}
 			for key in js['cols'].keys():
-				# self.logger.info(js['data'][key])
-				item[js['cols'][key]] = js['data'][key]
+				# logger.info(js['data'][key])
+				item[cols[key]] = data[key]
 
 			item['full'] = js['data']['gsqc'];
 			item['type'] = core['type'];
 			yield item
+			
+			#A股票
+			code = data['agdm'];
+			date = data['agssrq'];
+			key = code + "_historyDay"
+			if not code  == '' and  not Cache.exists(key):
+				Cache.set(key,date);
+
+			#B股票
+			code = data['bgdm']
+			date = data['bgssrq']
+			key = code + "_historyDay"
+			if not code  == '' and  not Cache.exists(key):
+				Cache.set(key,date);
+
+			yield Core.subDone(core,meta,data,item);
 #关键指标
 class Index:
 	@staticmethod
@@ -493,7 +514,7 @@ class AnnList:
 
 cores = [
 {
-	'scropy:request':{
+	'scrapy:request':{
 		'priority':9,
 	},
 	'type':'Report',
@@ -502,18 +523,17 @@ cores = [
 	'parse':Report.parse,
 	'end':Report.end,
 	'subItem':[
-		# 'HistoryDay',
-		'Quotation',
-		'Company',
-		'Index',
-		'AnnIndex',
-		'Market',
-		'History',
-		'AnnList'
+		# 'Quotation',
+		# 'Company',
+		# 'Index',
+		# 'AnnIndex',
+		# 'Market',
+		# 'History',
+		# 'AnnList'
 	]
 },
 {
-	'scrapy:request':{
+	'scrapy.request':{
 		'priority':7,
 	},
 	'type':'HistoryDay',
@@ -524,7 +544,7 @@ cores = [
 	'subGet':HistoryDay.sub,
 },
 {
-	'scrapy:request':{
+	'scrapy.request':{
 		'priority':6,
 	},
 	'type':'Quotation',
@@ -534,17 +554,20 @@ cores = [
 	'subGet':Quotation.sub,
 },
 {
-	'scrapy:request':{
+	'scrapy.request':{
 		'priority':5,
 	},
 	'type':'Company',
 	'url':Template('http://www.szse.cn/api/report/index/companyGeneralization?secCode=${code}'),
 	'get':Core.get,
 	'parse':Company.parse,
-	'subGet':Company.sub
+	'subGet':Company.sub,
+	'subItem':[
+		'HistoryDay'
+	]
 },
 {
-	'scrapy:request':{
+	'scrapy.request':{
 		'priority':4,
 	},
 	'type':'Index',
@@ -554,7 +577,7 @@ cores = [
 	'subGet':Index.sub
 },
 {
-	'scrapy:request':{
+	'scrapy.request':{
 		'priority':3,
 	},
 	'type':'AnnIndex',
@@ -564,7 +587,7 @@ cores = [
 	'subGet':AnnIndex.sub
 },
 {
-	'scrapy:request':{
+	'scrapy.request':{
 		'priority':2,
 	},
 	'type':'Market',
@@ -574,7 +597,7 @@ cores = [
 	'subGet':Market.sub
 },
 {
-	'scrapy:request':{
+	'scrapy.request':{
 		'priority':1,
 	},
 	'type':'History',
@@ -603,9 +626,6 @@ def internal_findCore(type_):
 	return None;
 
 def findCore(meta):
-	for core in cores:
-		if not meta['scropy:domain'] == static_domain:
-			continue;
-		if meta['scropy:type'] == core['type']:
-			return core;
-	return None;
+	if not meta['scrapy:domain'] == static_domain:
+		return None;
+	return internal_findCore(meta['scrapy:type'])

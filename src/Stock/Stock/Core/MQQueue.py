@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import pika
-from MQFactory import newConnection
+from pika.exceptions import UnroutableError
+from .MQFactory import newConnection
 
 # {
 # 'prefetch':1,
@@ -106,6 +107,7 @@ class MQPublish(object):
 		self.connection = connection;
 
 	def publish(self,value):
+		print("正在发送...");
 		try:
 			result = None;
 			if 'exchange' in self.config:
