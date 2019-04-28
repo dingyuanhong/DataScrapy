@@ -54,6 +54,7 @@ class StockRedisPipeline(object):
 			key = key + '_' + item['attachPath'];
 
 		if self.cache.exists(key):
+			logger.info("Already item:" + key);
 			raise DropItem("Already consume item:%s" % item)
 
 		self.cache.set(key,'');
@@ -86,7 +87,7 @@ class StockMQPipeline(object):
 
 		self.publish.publish(json.dumps(item));
 
-		raise DropItem("Already consume item:%s" % item)
+		# raise DropItem("Already consume item:%s" % item)
 		
 		return item
 
@@ -113,7 +114,28 @@ class StockDBPipeline(object):
 		del item['scrapy:type'];
 		del item['scrapy:domain']
 
-		if domain == 'Shenzhen':
+		if domain == 'Shenzhen' and not self.upset:
+			if type_ == "Report":
+				self.Report.insert_one(item)
+			elif type_ == 'HistoryDay':
+				self.HistoryDay.insert_one(item)
+			elif type_ == 'Quotation':
+				self.Quotation.insert_one(item)
+			elif type_ == "Company":
+				self.Company.insert_one(item)
+			elif type_ == 'Index':
+				self.Index.insert_one(item)
+			elif type_ == 'AnnIndex':
+				self.AnnIndex.insert_one(item)
+			elif type_ == 'Market':
+				self.Market.insert_one(item)
+			elif type_ == 'Volume':
+				self.Volume.insert_one(item)
+			elif type_ == 'transaction':
+				self.transaction.insert_one(item)
+			elif type_ == 'AnnList':
+				self.AnnList.insert_one(item)
+		elif domain == 'Shenzhen':
 			if type_ == "Report":
 				self.Report.update({'code':item['code'] },{'$set':item},self.upset)
 			elif type_ == 'HistoryDay':
@@ -133,5 +155,5 @@ class StockDBPipeline(object):
 			elif type_ == 'transaction':
 				self.transaction.update({'date':item['date'],'code':item['code']},{'$set':item},self.upset)
 			elif type_ == 'AnnList':
-				self.AnnList.update({'date':item['date'],'code':item['code']},{'$set':item},self.upset)
+				self.AnnList.update({'attachPath':item['attachPath'],'code':item['code']},{'$set':item},self.upset)
 		return item
