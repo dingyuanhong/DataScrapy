@@ -5,6 +5,16 @@ import pika
 
 #https://www.cnblogs.com/pangguoping/p/5720134.html
 
+# {
+# 	'HOST':'',
+# 	'PORT':'',
+# 	'VHOST':'',
+# 	'credentials':{
+# 		'name':'',
+# 		'passwd':'',
+# 	}
+# }
+
 def newConnection(ARGS):
 	# ######################### 生产者 #########################
 	credentials = pika.PlainCredentials(ARGS['credentials']['name'], ARGS['credentials']['passwd'])

@@ -14,19 +14,25 @@ from .Cache import Cache
 import logging
 logger = logging.getLogger('Shenzhen')
 
+
+static_domain = 'Shenzhen'
+
 class Core:
+	@staticmethod
+	def getMeta(core,meta):
+		return {**meta,**{'scrapy:type':core['type'],'scrapy:domain':static_domain}}
 	@staticmethod
 	def get(core,param):
 		meta = param;
 		yield {
 			'url':core['url'].substitute(meta),
-			'meta':{**meta,**{'scrapy:type':core['type']}}
+			'meta':Core.getMeta(core,meta)
 		}
 	@staticmethod
 	def subDone(core,meta,data,item):
 		if 'subItem' in core:
 			for t in core['subItem']:
-				c = findCore(t)
+				c = internal_findCore(t)
 				if c == None:
 					continue;
 				if 'subGet' in c:
@@ -100,12 +106,11 @@ class HistoryDay:
 		# 	'code':code,
 		# 	'date':date
 		# });
-		yield {
-			'scrapy:type':core['type'],
+		yield Core.getMeta(core,{
 			'key':key,
 			'code':code,
 			'date':date
-		}
+		})
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body)
@@ -118,7 +123,6 @@ class HistoryDay:
 			# "ss":"今收","sdf":"升跌<br>(%)",
 			# "cjje":"成交金额<br>(万元)","syl1":"市盈率"
 			item = {}
-			item["type"] = core['type'];
 			item["code"] = each["zqdm"];
 			item["name"] = each["zqjc"];
 			item["date"] = each["jyrq"];
@@ -167,10 +171,9 @@ class Quotation:
 		soup = BeautifulSoup(data['jqhq'],'lxml')
 		url = soup.a.get('a-param');
 		# yield core['get'](core,{'url':url})
-		yield {
-			'scrapy:type':core['type'],
+		yield Core.getMeta(core,{
 			'url':url
-		}
+		})
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body) 
@@ -197,11 +200,10 @@ class Company:
 		key = meta['key']
 		code = item['code'];
 		# yield core['get'](core,{'key':key,'code':code})
-		yield {
-			'scrapy:type':core['type'],
+		yield Core.getMeta(core,{
 			'key':key,
 			'code':code
-		}
+		})
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body)
@@ -221,11 +223,10 @@ class Index:
 		key = meta['key']
 		code = item['code'];
 		# yield core['get'](core,{'key':key,'code':code})
-		yield {
-			'scrapy:type':core['type'],
+		yield Core.getMeta(core,{
 			'key':key,
 			'code':code
-		}
+		})
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body)
@@ -286,20 +287,18 @@ class AnnIndex:
 		code = item['code'];
 		#最新公告
 		# yield core['get'](core,{'key':key,'code':code,"channel":"listedNotice_disc"})
-		yield {
-			'scrapy:type':core['type'],
+		yield Core.getMeta(core,{
 			'key':key,
 			'code':code,
 			"channel":"listedNotice_disc"
-		}
+		})
 		#定期报告
 		# yield core['get'](core,{'key':key,'code':code,"channel":"fixed_disc"})
-		yield {
-			'scrapy:type':core['type'],
+		yield Core.getMeta(core,{
 			'key':key,
 			'code':code,
 			"channel":"fixed_disc"
-		}
+		})
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body)
@@ -322,11 +321,10 @@ class Market:
 		key = meta['key']
 		code = item['code'];
 		# return core['get'](core,{'key':key,'code':code})
-		yield {
-			'scrapy:type':core['type'],
+		yield Core.getMeta(core,{
 			'key':key,
 			'code':code,
-		}
+		})
 	@staticmethod
 	def parse(core,meta,body):
 		js = json.loads(body)
@@ -349,24 +347,21 @@ class History:
 		#月线
 		# yield core['make'](core,{'key':key,'code':code,'type':34})
 
-		yield {
-			'scrapy:type':core['type'],
+		yield Core.getMeta(core,{
 			'key':key,
 			'code':code,
 			'type':32
-		}
-		yield {
-			'scrapy:type':core['type'],
+		})
+		yield Core.getMeta(core,{
 			'key':key,
 			'code':code,
 			'type':33
-		}
-		yield {
-			'scrapy:type':core['type'],
+		})
+		yield Core.getMeta(core,{
 			'key':key,
 			'code':code,
 			'type':34
-		}
+		})
 	@staticmethod
 	def parse(core,meta,body):
 		cycle = meta['type'];
@@ -427,12 +422,11 @@ class AnnList:
 		key = meta['key']
 		code = item['code'];
 		# return core['get'](core,{'pageNum':1,'pageSize':30,'code':code})
-		yield {
-			'scrapy:type':core['type'],
+		yield Core.getMeta(core,{
 			'pageNum':1,
 			'pageSize':30,
 			'code':code
-		}
+		})
 	@staticmethod
 	def get(core,param):
 		formdata = {
@@ -447,7 +441,7 @@ class AnnList:
 			'method':"POST",
 			'headers':{'Content-Type': 'application/json'},
 			'body':json.dumps(formdata),
-			'meta' : {**param,**{'scrapy:type':core['type']}}
+			'meta' : Core.getMeta(core,param)
 		}
 	@staticmethod
 	def parse(core,meta,body):
@@ -602,8 +596,16 @@ cores = [
 }
 ]
 
-def findCore(type_):
+def internal_findCore(type_):
 	for core in cores:
 		if type_ == core['type']:
+			return core;
+	return None;
+
+def findCore(meta):
+	for core in cores:
+		if not meta['scropy:domain'] == static_domain:
+			continue;
+		if meta['scropy:type'] == core['type']:
 			return core;
 	return None;

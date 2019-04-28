@@ -15,7 +15,7 @@ import sys
 sys.path.append("..")
 from util.logger import getLogger
 from scrapy_redis.spiders import RedisSpider
-from ..Core.Shenzhen import findCore
+import ..Core.Shenzhen
 from scrapy_redis.spiders import RedisSpider
 
 class SharesSpider(scrapy.Spider):
@@ -27,6 +27,7 @@ class SharesSpider(scrapy.Spider):
 	keys = ['tab1','tab2','tab3','tab4'];
 
 	config = [{
+		'scrapy:domain':Shenzhen.static_domain,
 		'scrapy:type':'Report',
 		'key':keys[0],
 		'pageno':1
@@ -90,7 +91,7 @@ class SharesSpider(scrapy.Spider):
 		# self.logger.info(meta);
 		# self.logger.info(body);
 
-		core = findCore(meta['scrapy:type'])
+		core = Shenzhen.findCore(meta)
 		result = core['parse'](core,meta,body);
 
 		for data in result:
@@ -105,9 +106,11 @@ class SharesSpider(scrapy.Spider):
 						self.logger.error("type error:" + each);
 						continue;
 
-					c = findCore(each['scrapy:type'])
+					c = Shenzhen.findCore(each)
 					for req in c['get'](c,each):
 						yield self.getRequest(c,req)
 			else:
 				if data != None:
+					data['scrapy:type'] = core['type'];
+					data['scrapy:domain'] = Shenzhen.static_domain;
 					yield data;

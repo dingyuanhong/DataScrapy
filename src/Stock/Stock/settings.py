@@ -67,6 +67,9 @@ DOWNLOADER_MIDDLEWARES = {
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
    'Stock.pipelines.StockPipeline': 300,
+   'Stock.pipelines.StockRedisPipeline': 301,
+   'Stock.pipelines.StockMQPipeline': 302,
+   'Stock.pipelines.StockDBPipeline': 304,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
@@ -89,8 +92,6 @@ ITEM_PIPELINES = {
 #HTTPCACHE_DIR = 'httpcache'
 #HTTPCACHE_IGNORE_HTTP_CODES = []
 #HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
-
-JOBDIR = './jobdir/'
 
 
 # IGNOREREQUEST = True 
