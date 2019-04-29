@@ -19,6 +19,7 @@ from .MQFactory import newConnection
 # }
 
 class MQSubscriber(object):
+	data_callback = None;
 	def __init__(self, config ,_kwargs):
 		# 连接到rabbitmq服务器
 		connection = newConnection(_kwargs)
@@ -54,13 +55,16 @@ class MQSubscriber(object):
 		self.channel = channel;
 		self.connection = connection;
 
-	def wait(self,):
+	def wait(self,done):
+		self.data_callback = done
 		# 开始接收信息，并进入阻塞状态
 		#队列里有信息才会调用callback进行处理
 		self.channel.start_consuming()
 
 	def callback(self,ch, method, properties, body):
-		print(" [x] Received %r" % body)
+		# print(" [x] Received %r" % body)
+		if self.data_callback != None:
+			self.data_callback(body);
 		ch.basic_ack(delivery_tag=method.delivery_tag)
 
 	def close(self):
