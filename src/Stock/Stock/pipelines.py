@@ -28,7 +28,7 @@ class StockPipeline(object):
 
 		return item
 
-class StockRedisPipeline(object):
+class StockRedisCheckPipeline(object):
 	def __init__(self):
 		HOST = settings.get('REDIS_HOST')
 		PORT = settings.get('REDIS_PORT')
@@ -54,10 +54,39 @@ class StockRedisPipeline(object):
 			key = key + '_' + item['attachPath'];
 
 		if self.cache.exists(key):
-			logger.info("Already item:" + key);
+			logger.info("Already consume item:" + key);
 			raise DropItem("Already consume item:%s" % item)
 
-		self.cache.set(key,'');
+		# raise DropItem("Already consume item:%s" % item)
+
+		return item
+
+class StockRedisFlagPipeline(object):
+	def __init__(self):
+		HOST = settings.get('REDIS_HOST')
+		PORT = settings.get('REDIS_PORT')
+		pool = redis.ConnectionPool(host=HOST, port=PORT)
+		self.cache = redis.Redis(connection_pool=pool)
+
+	def process_item(self, item, spider):
+		type_ = item['scrapy:type']
+		domain = item['scrapy:domain']
+
+		key = domain + "_" + type_;
+		if 'code' in item:
+			key = key + '_' + item['code'];
+		if 'date' in item:
+			key = key + '_' + item['date'];
+		if 'full' in item:
+			key = key + '_' + item['full'];
+		if 'lastDate' in item:
+			key = key + '_' + item['lastDate'];
+		if 'marketTime' in item:
+			key = key + '_' + item['marketTime'];
+		if 'attachPath' in item:
+			key = key + '_' + item['attachPath'];
+
+		self.cache.set(key,'1');
 		# self.cache.set(key,json.dumps(item));
 
 		return item

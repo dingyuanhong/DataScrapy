@@ -534,7 +534,7 @@ cores = [
 },
 {
 	'scrapy.request':{
-		'priority':7,
+		'priority':-1,
 	},
 	'type':'HistoryDay',
 	'url':Template('http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1815_stock&TABKEY=${key}&radioClass=00%2C20%2C30&txtSite=all&txtDMorJC=${code}&txtBeginDate=${date}&txtEndDate=${date}'),

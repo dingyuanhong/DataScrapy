@@ -67,9 +67,10 @@ DOWNLOADER_MIDDLEWARES = {
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
    'Stock.pipelines.StockPipeline': 300,
-   'Stock.pipelines.StockRedisPipeline': 301,
-   'Stock.pipelines.StockMQPipeline': 302,
+   'Stock.pipelines.StockRedisCheckPipeline': 301,
+   # 'Stock.pipelines.StockMQPipeline': 302,
    # 'Stock.pipelines.StockDBPipeline': 304,
+   'Stock.pipelines.StockRedisFlagPipeline':309,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)

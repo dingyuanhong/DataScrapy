@@ -147,6 +147,7 @@ class MQPublish(object):
 										  mandatory=True)
 		except UnroutableError:
 			print('发送失败')
+		print("发送完成");
 
 	def close(self):
 		self.connection.close();
