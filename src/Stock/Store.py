@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import redis
-from scrapy.conf import settings
 from pymongo import MongoClient
-import logging
-from scrapy.exceptions import DropItem
+
 # import json
 # import simdjson
 import ujson as json
 # import simdjson as json
 
-from .Core.MQQueue import MQSubscriber
-from pipelines import StockDBPipeline
+from Stock.Core.MQQueue import MQSubscriber
+from Stock.pipelines import StockDBPipeline
 
 import logging
 logger = logging.getLogger('Shenzhen')
@@ -42,7 +40,8 @@ args = {
 pipeline = StockDBPipeline()
 
 def done(data):
-	pipeline.process_item(json.dumps(data))
+	print(data)
+	pipeline.process_item(json.loads(data),None)
 
 sub = MQSubscriber(config,args)
 sub.wait(done);
