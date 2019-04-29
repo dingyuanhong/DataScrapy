@@ -55,12 +55,37 @@ class SharesSpider(scrapy.Spider):
 
 	keys = ['tab1','tab2','tab3','tab4'];
 
-	config = [{
+	config = [
+	{
 		'scrapy:domain':'Shenzhen',
 		'scrapy:type':'Report',
 		'key':keys[0],
 		'pageno':1
-	}]
+	},
+	{
+		'scrapy:domain':'Shenzhen',
+		'scrapy:type':'Report',
+		'key':keys[1],
+		'pageno':1
+	},
+	{
+		'scrapy:domain':'Shenzhen',
+		'scrapy:type':'Report',
+		'key':keys[2],
+		'pageno':1
+	},
+	{
+		'scrapy:domain':'Shenzhen',
+		'scrapy:type':'Report',
+		'key':keys[3],
+		'pageno':1
+	},
+	{
+		'scrapy:domain':'Shanghai',
+		'scrapy:type':'Stock',
+		'pageno':0
+	}
+	]
 
 	def start_requests(self):
 		for each in self.config:
@@ -68,8 +93,12 @@ class SharesSpider(scrapy.Spider):
 			if rule == None:
 				self.logger.error("find rule empty:",each);
 				continue;
-			for req in core['get'](core,each):
-				yield self.getRequest(core,req)
+			data = core['get'](core,each)
+			if isinstance(data,GeneratorType):
+				for req in data:
+					yield self.getRequest(core,req)
+			else:
+				yield self.getRequest(core,data)
 
 	def Generator3Layer(self,data):
 		if isinstance(data,GeneratorType):
@@ -121,8 +150,10 @@ class SharesSpider(scrapy.Spider):
 		if rule == None:
 			self.logger.error("find rule empty:",meta);
 			return;
-
-		body = response.body.decode('utf-8')
+		if rule.language != '':
+			body = response.body.decode(rule.language)
+		else:
+			body = response.body
 		# self.logger.info(response.url);
 		# self.logger.info(meta);
 		# self.logger.info(body);
@@ -140,7 +171,7 @@ class SharesSpider(scrapy.Spider):
 					if not isinstance(each,dict):
 						self.logger.error("type error:" + each);
 						continue;
-
+					# self.logger.info(each)
 					c = self.rules.findCore(rule,each)
 					for req in c['get'](c,each):
 						yield self.getRequest(c,req)

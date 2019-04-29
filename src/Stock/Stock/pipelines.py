@@ -17,7 +17,7 @@ import ujson as json
 from .Core.MQQueue import MQPublish
 
 import logging
-logger = logging.getLogger('Shenzhen')
+logger = logging.getLogger('Shares')
 
 class StockPipeline(object):
 	def process_item(self, item, spider):
@@ -43,7 +43,9 @@ class StockRedisCheckPipeline(object):
 		if 'code' in item:
 			key = key + '_' + item['code'];
 		if 'date' in item:
-			key = key + '_' + item['date'];
+			key = key + '_' + str(item['date']);
+		if 'time' in item:
+			key = key + '_' + str(item['time']);
 		if 'full' in item:
 			key = key + '_' + item['full'];
 		if 'lastDate' in item:
@@ -54,9 +56,10 @@ class StockRedisCheckPipeline(object):
 			key = key + '_' + item['attachPath'];
 
 		if self.cache.exists(key):
-			logger.info("Already consume item:" + key);
+			logger.info("Already consume item:%s" % key);
 			raise DropItem("Already consume item:%s" % item)
 
+		# logger.info(item)
 		# raise DropItem("Already consume item:%s" % item)
 
 		return item
@@ -69,6 +72,7 @@ class StockRedisFlagPipeline(object):
 		self.cache = redis.Redis(connection_pool=pool)
 
 	def process_item(self, item, spider):
+		return;
 		type_ = item['scrapy:type']
 		domain = item['scrapy:domain']
 
@@ -76,7 +80,9 @@ class StockRedisFlagPipeline(object):
 		if 'code' in item:
 			key = key + '_' + item['code'];
 		if 'date' in item:
-			key = key + '_' + item['date'];
+			key = key + '_' + str(item['date']);
+		if 'time' in item:
+			key = key + '_' + str(item['time']);
 		if 'full' in item:
 			key = key + '_' + item['full'];
 		if 'lastDate' in item:
@@ -134,6 +140,13 @@ class StockDBPipeline(object):
 		self.Market = self.db.Market		#市场
 		self.Volume = self.db.Volume		#成交量
 		self.Transaction = self.db.Transaction	#成交详情
+
+		self.db = self.conn.Shanghai
+		self.Stock = self.db.Stock  #代码
+		self.Snap = self.db.Snap  #分钟
+		self.Line = self.db.Line  #线
+		self.KLine = self.db.KLine  #线
+
 		self.upset = False
 
 	def process_item(self, item, spider):
@@ -142,28 +155,14 @@ class StockDBPipeline(object):
 
 		del item['scrapy:type'];
 		del item['scrapy:domain']
+		if 'type' in item:
+			type_ = item['type']
+			del item['type'];
 
-		if domain == 'Shenzhen' and not self.upset:
-			if type_ == "Report":
-				self.Report.insert_one(item)
-			elif type_ == 'HistoryDay':
-				self.HistoryDay.insert_one(item)
-			elif type_ == 'Quotation':
-				self.Quotation.insert_one(item)
-			elif type_ == "Company":
-				self.Company.insert_one(item)
-			elif type_ == 'Index':
-				self.Index.insert_one(item)
-			elif type_ == 'AnnIndex':
-				self.AnnIndex.insert_one(item)
-			elif type_ == 'Market':
-				self.Market.insert_one(item)
-			elif type_ == 'Volume':
-				self.Volume.insert_one(item)
-			elif type_ == 'transaction':
-				self.transaction.insert_one(item)
-			elif type_ == 'AnnList':
-				self.AnnList.insert_one(item)
+		if not self.upset:
+			collection = getattr(self,type_,None)
+			if collection != None:
+				collection.insert_one(item)
 		elif domain == 'Shenzhen':
 			if type_ == "Report":
 				self.Report.update({'code':item['code'] },{'$set':item},self.upset)
@@ -185,4 +184,13 @@ class StockDBPipeline(object):
 				self.transaction.update({'date':item['date'],'code':item['code']},{'$set':item},self.upset)
 			elif type_ == 'AnnList':
 				self.AnnList.update({'attachPath':item['attachPath'],'code':item['code']},{'$set':item},self.upset)
+		elif domain == 'Shanghai':
+			if type_ == "Stock":
+				self.Stock.update({'code':item['code'],'date':item['date'],'time': item['time']},{'$set':item},self.upset)
+			elif type_ == "Snap":
+				self.Snap.update({'code':item['code'],'date':item['date'],'time': item['time']},{'$set':item},self.upset)
+			elif type_ == "Line":
+				self.Line.update({'code':item['code'],'date':item['date'],'time': item['time']},{'$set':item},self.upset)
+			elif type_ == "KLine":
+				self.KLine.update({'code':item['code'],'date':item['date']},{'$set':item},self.upset)
 		return item

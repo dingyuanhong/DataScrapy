@@ -94,7 +94,6 @@ class Report:
 		#扩展
 		item["meta"] = data['metadata']['name']
 
-		item["type"] = core['type'];
 		return item
 #指定日期日线
 class HistoryDay:
@@ -196,7 +195,6 @@ class Quotation:
 		item['changepercent'] = each['sdf'];
 		item['amount'] = each['cjje'];
 		item['pb'] = each['syl1'];
-		item['type'] = core['type']
 		return item;
 #公司信息
 class Company:
@@ -221,7 +219,6 @@ class Company:
 				item[cols[key]] = data[key]
 
 			item['full'] = js['data']['gsqc'];
-			item['type'] = core['type'];
 			yield item
 			
 			#A股票
@@ -300,7 +297,6 @@ class Index:
 			item['lastDate'] = js['lastDate']
 			item['code'] = meta['code']
 
-			item['type'] = core['type'];
 			yield item;
 #公告
 class AnnIndex:
@@ -329,7 +325,6 @@ class AnnIndex:
 		for each in js['data']:
 			item = {}
 			item['code'] = code;
-			item['type'] = core['type'];
 
 			item['title'] = each['title']
 			item['publishTime'] = each['publishTime']
@@ -355,7 +350,6 @@ class Market:
 			yield None
 			return;
 		data = js['data'];
-		data['type'] = core['type']
 		yield data
 #历史数据
 class History:
@@ -480,7 +474,6 @@ class AnnList:
 		for each in js["data"]:
 			index-=1
 			item = {}
-			item['type'] = core['type'];
 			item['code'] = each["secCode"][0];
 			item['sortID'] = index;
 			item['title'] = each['title']
@@ -526,18 +519,18 @@ cores = [
 	'parse':Report.parse,
 	'end':Report.end,
 	'subItem':[
-		'Quotation',
-		'Company',
-		'Index',
-		'AnnIndex',
-		'Market',
+		# 'Quotation',
+		# 'Company',
+		# 'Index',
+		# 'AnnIndex',
+		# 'Market',
 		'History',
-		'AnnList'
+		# 'AnnList'
 	]
 },
 {
 	'scrapy.request':{
-		'priority':-1,
+		'priority':0,
 	},
 	'random':'ramdom',
 	'type':'HistoryDay',
@@ -630,7 +623,8 @@ cores = [
 }
 ]
 
-allowed_domains = ['sse.com.cn']
+language = 'UTF-8'
+allowed_domains = ['sse.com.cn','szse.cn']
 static_domain = 'Shenzhen'
 
 def internal_findCore(type_):

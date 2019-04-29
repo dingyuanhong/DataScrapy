@@ -11,6 +11,7 @@ import datetime
 import os
 import copy
 from .Cache import Cache
+import urllib.parse
 import logging
 logger = logging.getLogger('Shanghai')
 
@@ -28,10 +29,11 @@ class Core:
 		#组合参数
 		param = ''
 		for key in keys:
-			if param != '':
-				param += '&'
-			v = str(values[key])
-			param += str(key) +'='+ urllib.parse.quote(v)
+			if key in values:
+				if param != '':
+					param += '&'
+				v = str(values[key])
+				param += str(key) +'='+ urllib.parse.quote(v)
 		return param;
 	@staticmethod
 	def subDone(core,meta,data,item):
@@ -49,26 +51,26 @@ class Core:
 class Stock:
 	@staticmethod
 	def get(core,param):
-		pagenum = param['pagenum']
+		pageno = param['pageno']
 		pagesize = 25
-		keys = ["callback","select","order","begin","end","_"]
+		keys = ["callback","select","order","begin","end"]
 		meta = {
 			"callback":"",
 			"select":"code,name,open,high,low,last,prev_close,chg_rate,volume,amount,tradephase,change,amp_rate",
 			"order":"",
-			"begin":pagenum,
-			"end":pagenum+pagesize,
+			"begin":pageno,
+			"end":pageno+pagesize,
 			"pageno":pagesize,
 		};
 
 		url = core['url'] + "?" + Core.merge(keys,meta);
-		return {
+		yield {
 			'url':url,
 			'meta':Core.getMeta(core,param)
 		}
 	@staticmethod
 	def parse(core,meta,body):
-		data = body[1:][:-1].decode('gbk');
+		data = body[1:][:-1]
 		# self.logger.info(data);
 		js = json.loads(data) 
 		for each in js['list']:
@@ -121,7 +123,7 @@ class Stock:
 		while end < total:
 			end = end + pagesize
 			meta = copy.deepcopy(meta);
-			meta['pagenum'] = end
+			meta['pageno'] = end
 			yield meta;
 		yield None
 
@@ -129,12 +131,12 @@ class Snap:
 	@staticmethod
 	def get(core,param):
 		code = param['code']
-		keys = ["callback","select","_"]
+		keys = ["callback","select"]
 		values = {
 			"callback":"",
 			"select":"name,last,chg_rate,change,amount,volume,open,prev_close,ask,bid,high,low,tradephase",
 		};
-		url = self.snap + str(code) + "?" + Core.merge(keys,values);
+		url = core['url'] + str(code) + "?" + Core.merge(keys,values);
 		# self.logger.info(url);
 		yield {
 			'url':url,
@@ -142,7 +144,7 @@ class Snap:
 		}
 	@staticmethod
 	def parse(core,meta,body):
-		data = body[1:][:-1].decode('gbk');
+		data = body[1:][:-1]
 		js = json.loads(data)
 
 		item = {}
@@ -198,22 +200,22 @@ class Line:
 		# &end=-1
 		# &select=time%2Cprice%2Cvolume
 		# &_=1553179236612
-		keys = ["callback","begin","end","select","_"]
+		keys = ["callback","begin","end","select"]
 		values = {
 			"callback":"",
 			"begin":0,
 			"end":-1,
 			"select":"time,price,volume",
 		};
-		url = self.line + str(code) + "?" + Core.merge(keys,values);
+		url = core['url'] + str(code) + "?" + Core.merge(keys,values);
 		# self.logger.info(url);
-		return {
+		yield {
 			'url':url,
 			'meta':Core.getMeta(core,{'code':code})
 		}
 	@staticmethod
 	def parse(core,meta,body):
-		data = body[1:][:-1].decode('gbk');
+		data = body[1:][:-1]
 		js = json.loads(data)
 
 		#code: "600000"	 代码
@@ -251,22 +253,22 @@ class KLine:
 	@staticmethod
 	def get(core,param):
 		code = param['code']
-		keys = ["callback","select","begin","end","_"]
+		keys = ["callback","select","begin","end"]
 		values = {
 			"callback":"",
 			"begin":0,
 			"end":-1,
 			"select":"date,open,high,low,close,volume",
 		};
-		url = self.kline + str(code) + "?" + MergeParam(keys,values);
+		url = core['url'] + str(code) + "?" + Core.merge(keys,values);
 		# self.logger.info(url);
-		return {
+		yield {
 			'url':url,
 			'meta':Core.getMeta(core,{'code':code})
 		}
 	@staticmethod
 	def parse(core,meta,body):
-		data = body[1:][:-1].decode('gbk');
+		data = body[1:][:-1]
 		js = json.loads(data)
 
 		# code: "600000" #代码
@@ -354,7 +356,7 @@ cores = [
 },
 ]
 
-
+language = 'gbk'
 allowed_domains = ['sse.com.cn']
 static_domain = 'Shanghai'
 

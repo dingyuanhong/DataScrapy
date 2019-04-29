@@ -69,7 +69,7 @@ ITEM_PIPELINES = {
    'Stock.pipelines.StockPipeline': 300,
    'Stock.pipelines.StockRedisCheckPipeline': 301,
    # 'Stock.pipelines.StockMQPipeline': 302,
-   # 'Stock.pipelines.StockDBPipeline': 304,
+   'Stock.pipelines.StockDBPipeline': 304,
    'Stock.pipelines.StockRedisFlagPipeline':309,
 }
 
@@ -101,7 +101,7 @@ RULES = [
 ]
 
 # IGNOREREQUEST = True 
-# LOG_LEVEL= 'ERROR'
+LOG_LEVEL= 'ERROR'
 
 #分布式
 SCHEDULER = 'scrapy_redis.scheduler.Scheduler'

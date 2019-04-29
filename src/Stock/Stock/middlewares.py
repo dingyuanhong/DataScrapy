@@ -76,17 +76,18 @@ class StockDownloaderMiddleware(object):
             raise IgnoreRequest;
         if request.url.find('robots.txt') != -1:
             return None;
+        
         url = request.url;
         meta = request.meta;
-        if 'random' in meta:
-            if meta['random'] == 'random':
+        if 'scrapy:random' in meta:
+            if meta['scrapy:random'] == 'random':
                 if url.find('random=') == -1:
                     if url.find('?') == -1:
                         url += '?random='+str(random.random())
                     else:
                         url += '&random='+str(random.random())
                     request._set_url(url);
-            elif meta['random'] == '_':
+            elif meta['scrapy:random'] == '_':
                 if url.find('_=') == -1:
                     if url.find('?') == -1:
                         url += '?_='+str(int(time.time()*1000))
