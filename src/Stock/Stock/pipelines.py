@@ -72,7 +72,6 @@ class StockRedisFlagPipeline(object):
 		self.cache = redis.Redis(connection_pool=pool)
 
 	def process_item(self, item, spider):
-		return;
 		type_ = item['scrapy:type']
 		domain = item['scrapy:domain']
 
