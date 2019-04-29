@@ -95,8 +95,13 @@ ITEM_PIPELINES = {
 #HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
 
 
+RULES = [
+	'Stock.Core.Shenzhen',
+	'Stock.Core.Shanghai',
+]
+
 # IGNOREREQUEST = True 
-LOG_LEVEL= 'ERROR'
+# LOG_LEVEL= 'ERROR'
 
 #分布式
 SCHEDULER = 'scrapy_redis.scheduler.Scheduler'

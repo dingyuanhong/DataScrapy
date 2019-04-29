@@ -11,23 +11,52 @@ from collections import Iterable, Iterator
 import redis
 import os
 import copy
-from scrapy_redis.spiders import RedisSpider
-
+import importlib
+import logging
 import sys
 sys.path.append("..")
 from util.logger import getLogger
-import Stock.Core.Shenzhen as Shenzhen
+from scrapy_redis.spiders import RedisSpider
+
+class RulesControl:
+	rules = copy.deepcopy(settings.get('RULES'))
+	def get_domains(self,):
+		allowed_domains = []
+		for i in range(0,len(self.rules)):
+			rule_ = self.rules[i];
+			if isinstance (rule_,str):
+				rule_ = importlib.import_module(rule_)
+				self.rules[i] = rule_;
+			if rule_ == None:
+				continue;
+			allowed_domains.extend(rule_.allowed_domains);
+		return allowed_domains;
+
+	def findCore(self,rule,meta):
+		if not meta['scrapy:domain'] == rule.static_domain:
+			return None;
+		return rule.internal_findCore(meta['scrapy:type'])
+
+	def findRule(self,meta):
+		for rule in self.rules:
+			if rule == None:
+				continue;
+			core = self.findCore(rule,meta)
+			if core != None:
+				return rule , core
+		return None,None
 
 class SharesSpider(scrapy.Spider):
 	name = 'shares'
-	allowed_domains = ['szse.cn']
+	rules = RulesControl()
+	allowed_domains = rules.get_domains()
 
-	logger = getLogger('Shenzhen');
+	logger = getLogger('Shares');
 
 	keys = ['tab1','tab2','tab3','tab4'];
 
 	config = [{
-		'scrapy:domain':Shenzhen.static_domain,
+		'scrapy:domain':'Shenzhen',
 		'scrapy:type':'Report',
 		'key':keys[0],
 		'pageno':1
@@ -35,7 +64,10 @@ class SharesSpider(scrapy.Spider):
 
 	def start_requests(self):
 		for each in self.config:
-			core = Shenzhen.findCore(each)
+			rule,core = self.rules.findRule(each)
+			if rule == None:
+				self.logger.error("find rule empty:",each);
+				continue;
 			for req in core['get'](core,each):
 				yield self.getRequest(core,req)
 
@@ -85,12 +117,16 @@ class SharesSpider(scrapy.Spider):
 		if settings.get('IGNOREREQUEST'):
 			return;
 
+		rule,core = self.rules.findRule(meta)
+		if rule == None:
+			self.logger.error("find rule empty:",meta);
+			return;
+
 		body = response.body.decode('utf-8')
 		# self.logger.info(response.url);
 		# self.logger.info(meta);
 		# self.logger.info(body);
 
-		core = Shenzhen.findCore(meta)
 		result = core['parse'](core,meta,body);
 
 		for data in result:
@@ -105,11 +141,11 @@ class SharesSpider(scrapy.Spider):
 						self.logger.error("type error:" + each);
 						continue;
 
-					c = Shenzhen.findCore(each)
+					c = self.rules.findCore(rule,each)
 					for req in c['get'](c,each):
 						yield self.getRequest(c,req)
 			else:
 				if data != None:
 					data['scrapy:type'] = core['type'];
-					data['scrapy:domain'] = Shenzhen.static_domain;
+					data['scrapy:domain'] = rule.static_domain;
 					yield data;

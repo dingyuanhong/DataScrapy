@@ -14,19 +14,14 @@ from .Cache import Cache
 import logging
 logger = logging.getLogger('Shenzhen')
 
-
-static_domain = 'Shenzhen'
-
 class Core:
 	@staticmethod
 	def getMeta(core,meta):
-		return {**meta,**{'scrapy:type':core['type'],'scrapy:domain':static_domain}}
-	@staticmethod
-	def get(core,param):
-		meta = param;
-		yield {
-			'url':core['url'].substitute(meta),
-			'meta':Core.getMeta(core,meta)
+		return {**meta,**{
+			'scrapy:type':core['type'],
+			'scrapy:domain':static_domain,
+			'scrapy:random':core['random'],
+			}
 		}
 	@staticmethod
 	def subDone(core,meta,data,item):
@@ -39,6 +34,13 @@ class Core:
 					for i in c['subGet'](c,meta,data,item):
 						yield i;
 		yield None;
+	@staticmethod
+	def get(core,param):
+		meta = param;
+		yield {
+			'url':core['url'].substitute(meta),
+			'meta':Core.getMeta(core,meta)
+		}
 
 #股票信息
 class Report:
@@ -517,6 +519,7 @@ cores = [
 	'scrapy:request':{
 		'priority':9,
 	},
+	'random':'ramdom',
 	'type':'Report',
 	'url':Template("http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1110x&TABKEY=${key}&PAGENO=${pageno}"),
 	'get':Core.get,
@@ -536,6 +539,7 @@ cores = [
 	'scrapy.request':{
 		'priority':-1,
 	},
+	'random':'ramdom',
 	'type':'HistoryDay',
 	'url':Template('http://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1815_stock&TABKEY=${key}&radioClass=00%2C20%2C30&txtSite=all&txtDMorJC=${code}&txtBeginDate=${date}&txtEndDate=${date}'),
 	'get':Core.get,
@@ -547,6 +551,7 @@ cores = [
 	'scrapy.request':{
 		'priority':6,
 	},
+	'random':'ramdom',
 	'type':'Quotation',
 	'url':Template('http://www.szse.cn/api/report${url}'),
 	'get':Core.get,
@@ -557,6 +562,7 @@ cores = [
 	'scrapy.request':{
 		'priority':5,
 	},
+	'random':'ramdom',
 	'type':'Company',
 	'url':Template('http://www.szse.cn/api/report/index/companyGeneralization?secCode=${code}'),
 	'get':Core.get,
@@ -570,6 +576,7 @@ cores = [
 	'scrapy.request':{
 		'priority':4,
 	},
+	'random':'ramdom',
 	'type':'Index',
 	'url':Template('http://www.szse.cn/api/report/index/stockKeyIndexGeneralization?secCode=${code}'),
 	'get':Core.get,
@@ -580,6 +587,7 @@ cores = [
 	'scrapy.request':{
 		'priority':3,
 	},
+	'random':'ramdom',
 	'type':'AnnIndex',
 	'url':Template('http://www.szse.cn/api/disc/announcement/annIndex?secCode=${code}&channelCode=${channel}'),
 	'get':Core.get,
@@ -590,6 +598,7 @@ cores = [
 	'scrapy.request':{
 		'priority':2,
 	},
+	'random':'ramdom',
 	'type':'Market',
 	'url':Template('http://www.szse.cn/api/market/ssjjhq/getTimeData?code=${code}&marketId=1'),
 	'get':Core.get,
@@ -600,6 +609,7 @@ cores = [
 	'scrapy.request':{
 		'priority':1,
 	},
+	'random':'ramdom',
 	'type':'History',
 	'url':Template('http://www.szse.cn/api/market/ssjjhq/getHistoryData?code=${code}&marketId=1&cycleType=${type}'),
 	'get':Core.get,
@@ -610,6 +620,7 @@ cores = [
 	'scrapy:request':{
 		'priority':0,
 	},
+	'random':'ramdom',
 	'type':'AnnList',
 	'url':'http://www.szse.cn/api/disc/announcement/annList',
 	'get':AnnList.get,
@@ -619,13 +630,11 @@ cores = [
 }
 ]
 
+allowed_domains = ['sse.com.cn']
+static_domain = 'Shenzhen'
+
 def internal_findCore(type_):
 	for core in cores:
 		if type_ == core['type']:
 			return core;
 	return None;
-
-def findCore(meta):
-	if not meta['scrapy:domain'] == static_domain:
-		return None;
-	return internal_findCore(meta['scrapy:type'])

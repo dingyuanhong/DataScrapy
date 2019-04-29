@@ -9,6 +9,7 @@ from scrapy import signals
 from scrapy.conf import settings
 from scrapy.exceptions import IgnoreRequest
 import random
+import time
 
 class StockSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -76,12 +77,22 @@ class StockDownloaderMiddleware(object):
         if request.url.find('robots.txt') != -1:
             return None;
         url = request.url;
-        if url.find('random=') == -1:
-            if url.find('?') == -1:
-                url += '?random='+str(random.random())
-            else:
-                url += '&random='+str(random.random())
-            request._set_url(url);
+        meta = request.meta;
+        if 'random' in meta:
+            if meta['random'] == 'random':
+                if url.find('random=') == -1:
+                    if url.find('?') == -1:
+                        url += '?random='+str(random.random())
+                    else:
+                        url += '&random='+str(random.random())
+                    request._set_url(url);
+            elif meta['random'] == '_':
+                if url.find('_=') == -1:
+                    if url.find('?') == -1:
+                        url += '?_='+str(int(time.time()*1000))
+                    else:
+                        url += '&_='+str(int(time.time()*1000))
+                    request._set_url(url);
         # Called for each request that goes through the downloader
         # middleware.
 
