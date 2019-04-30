@@ -277,7 +277,6 @@ class KLine:
 		# total: 4572 #总数
 
 		item = {}
-		item['type'] = 'kline';
 		item['code'] = js['code'];
 
 		# js["kline"];

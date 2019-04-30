@@ -162,6 +162,8 @@ class StockDBPipeline(object):
 			collection = getattr(self,type_,None)
 			if collection != None:
 				collection.insert_one(item)
+			else:
+				print("no found type:"+type_);
 		elif domain == 'Shenzhen':
 			if type_ == "Report":
 				self.Report.update({'code':item['code'] },{'$set':item},self.upset)
