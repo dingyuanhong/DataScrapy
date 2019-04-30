@@ -104,7 +104,8 @@ class StockMQPipeline(object):
 				'mode':'direct', #fanout direct topics
 				'durable':True,
 			},
-			'route':'data'
+			'route':'data',
+			'durable':False,
 		}
 		args = {
 			'HOST':'127.0.0.1',

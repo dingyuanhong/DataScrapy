@@ -117,7 +117,11 @@ class MQPublish(object):
 			if 'exchange' in self.config:
 				exchange = self.config['exchange']
 				route = self.config['route']
-				if 'durable' in exchange and exchange['durable']:
+				durable = False
+				if 'durable' in self.config and self.config['durable']:
+					durable = True
+
+				if durable:
 					self.channel.basic_publish(exchange=exchange['key'],
 									  routing_key=route,
 									  body=value,
@@ -131,8 +135,12 @@ class MQPublish(object):
 									  body=value,
 									  mandatory=True)
 			else:
+				durable = False;
+				if 'durable' in self.config and self.config['durable']:
+					durable = True
+
 				queue = self.config['queue']
-				if 'durable' in queue and queue['durable']:
+				if durable:
 					result = self.channel.basic_publish(exchange='',
 										  routing_key=queue['key'],
 										  body=value,
